@@ -1,0 +1,3553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SGPEC - Sistema de Gestão de Pecuária com NLP, Geolocalização e IA">
+    <meta name="theme-color" content="#059669">
+    
+    <title>SGPEC - Sistema Inteligente de Gestão Pecuária</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: '#059669',
+                        secondary: '#047857',
+                        accent: '#10b981',
+                        dark: '#064e3b',
+                        light: '#d1fae5',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Base Styles */
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .glass-dark {
+            background: rgba(6, 78, 59, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        /* Voice Animation */
+        .voice-wave { display: flex; align-items: center; gap: 3px; height: 30px; }
+        .voice-bar {
+            width: 4px; background: #059669; border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+        .voice-bar:nth-child(2) { animation-delay: 0.1s; }
+        .voice-bar:nth-child(3) { animation-delay: 0.2s; }
+        .voice-bar:nth-child(4) { animation-delay: 0.3s; }
+        .voice-bar:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes wave {
+            0%, 100% { height: 10px; }
+            50% { height: 30px; }
+        }
+        .listening .voice-bar { background: #ef4444; }
+        
+        /* Map */
+        #map { height: 600px; width: 100%; border-radius: 12px; }
+        
+        /* Modals */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            z-index: 9999; justify-content: center; align-items: center;
+        }
+        .modal.active { display: flex; }
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 600;
+        }
+        .status-otimo { background: #d1fae5; color: #065f46; }
+        .status-bom { background: #dbeafe; color: #1e40af; }
+        .status-regular { background: #fef3c7; color: #92400e; }
+        .status-ruim { background: #fee2e2; color: #991b1b; }
+        
+        /* NLP Styles */
+        .nlp-command { border-left: 4px solid #059669; background: #f0fdf4; }
+        .entity-highlight { 
+            background: #fef3c7; padding: 2px 6px; 
+            border-radius: 4px; font-weight: 600; 
+        }
+        .action-badge { 
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+        }
+        .action-vacina { background: #dbeafe; color: #1e40af; }
+        .action-parto { background: #fce7f3; color: #be185d; }
+        .action-pesagem { background: #d1fae5; color: #065f46; }
+        .action-movimento { background: #fef3c7; color: #92400e; }
+        .action-observacao { background: #e5e7eb; color: #374151; }
+        
+        /* Voice Panel */
+        #voicePanel {
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+        #voicePanel.active { transform: translateY(0); }
+        
+        /* Charts */
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        
+        /* Upload Zone */
+        .kml-upload-zone {
+            border: 2px dashed #059669; border-radius: 12px;
+            padding: 40px; text-align: center;
+            transition: all 0.3s; cursor: pointer;
+        }
+        .kml-upload-zone:hover { background: #ecfdf5; border-color: #047857; }
+        .kml-upload-zone.dragover { background: #d1fae5; border-color: #059669; }
+        
+        /* Scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Toast */
+        #toast {
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        
+        /* Tooltip */
+        .tooltip-ia { position: relative; cursor: help; }
+        .tooltip-ia::after {
+            content: attr(data-tip);
+            position: absolute; bottom: 100%; left: 50%;
+            transform: translateX(-50%); padding: 8px 12px;
+            background: #064e3b; color: white;
+            border-radius: 8px; font-size: 12px;
+            white-space: nowrap; opacity: 0;
+            pointer-events: none; transition: all 0.3s;
+            z-index: 1000;
+        }
+        .tooltip-ia:hover::after { opacity: 1; bottom: calc(100% + 8px); }
+
+        /* Feature Lock Overlay */
+        .feature-locked {
+            position: relative;
+            opacity: 0.7;
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+        .feature-locked::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .lock-badge {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f59e0b;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            z-index: 11;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Progress Bar */
+        .usage-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .usage-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #059669, #10b981);
+            transition: width 0.3s ease;
+        }
+        .usage-bar-fill.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .usage-bar-fill.danger { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+        /* Plan Badge */
+        .plan-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .plan-free { background: #e5e7eb; color: #374151; }
+        .plan-produtor { background: #dbeafe; color: #1e40af; }
+        .plan-fazenda { background: #d1fae5; color: #065f46; }
+        .plan-agropecuaria { background: #fef3c7; color: #92400e; }
+        .plan-trial { background: #fce7f3; color: #be185d; }
+
+        /* Upsell Modal */
+        .upsell-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 2px solid #059669;
+        }
+        .upsell-feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+
+    <!-- Header -->
+    <header class="glass-dark text-white sticky top-0 z-50 shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-accent to-primary rounded-xl flex items-center justify-center shadow-lg">
+                        <i class="fas fa-cow text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight">SGPEC</h1>
+                        <p class="text-emerald-200 text-sm">Sistema de Gestão de Pecuária</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- Usage Bar -->
+                    <div class="hidden md:flex flex-col w-48" id="usageContainer">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-emerald-200">Uso do Plano</span>
+                            <span class="text-white font-medium" id="usageText">0/50</span>
+                        </div>
+                        <div class="usage-bar bg-white/20">
+                            <div class="usage-bar-fill" id="usageBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Plan Badge -->
+                    <div id="planBadgeContainer" class="hidden md:block">
+                        <span class="plan-badge plan-free" id="currentPlanBadge">FREE</span>
+                    </div>
+                    
+                    <!-- Trial Badge -->
+                    <div id="trialBadge" class="hidden px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-xs font-bold animate-pulse">
+                        <i class="fas fa-gift"></i> Trial 7 dias
+                    </div>
+
+                    <!-- Settings Button -->
+                    <button onclick="sgpec.openSettings()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    
+                    <div class="flex items-center gap-3 bg-white/10 rounded-lg px-4 py-2">
+                        <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+                            <i class="fas fa-user text-sm"></i>
+                        </div>
+                        <div class="text-sm hidden md:block">
+                            <p class="font-medium" id="userName">Administrador</p>
+                            <p class="text-emerald-200 text-xs" id="farmName">Fazenda Modelo</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-[80px] z-30">
+        <div class="container mx-auto px-6">
+            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                <button onclick="sgpec.showSection('dashboard')" class="nav-btn px-6 py-4 text-sm font-medium text-primary border-b-2 border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </button>
+                <button onclick="sgpec.showSection('animais')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-cow"></i> Animais
+                </button>
+                <button onclick="sgpec.showSection('piquetes')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-vector-square"></i> Piquetes
+                </button>
+                <button onclick="sgpec.showSection('mapa')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-map-marked-alt"></i> Mapa
+                </button>
+                <button onclick="sgpec.showSection('relatorios')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-file-export"></i> Relatórios
+                </button>
+                <button onclick="sgpec.showSection('historico')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-history"></i> Histórico
+                </button>
+                <button onclick="sgpec.showSection('planos')" class="nav-btn px-6 py-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary hover:border-primary hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-crown"></i> Planos
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8 pb-24">
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section-content">
+            <div class="mb-8 flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Dashboard</h2>
+                    <p class="text-gray-600">Visão geral da sua operação pecuária</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sgpec.checkFeatureAndExecute('voice_commands', () => sgpec.toggleVoice())" 
+                            id="voiceBtn" 
+                            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all relative">
+                        <div class="voice-wave" id="voiceWave">
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                        </div>
+                        <span class="text-sm font-medium">Comando de Voz</span>
+                        <span id="voiceStatus" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Trial Banner -->
+            <div id="trialBanner" class="hidden mb-6 bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-gift text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold">Período de Trial Ativo!</h3>
+                            <p class="text-pink-100">Você tem <span id="trialDaysLeft">7</span> dias para testar todas as funcionalidades do plano <span id="trialPlanName">Produtor</span>.</p>
+                        </div>
+                    </div>
+                    <button onclick="sgpec.showSection('planos')" class="px-6 py-3 bg-white text-purple-600 rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-lg">
+                        Ver Planos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Limit Warning Banner -->
+            <div id="limitWarning" class="hidden mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-amber-500 text-xl"></i>
+                    <div>
+                        <p class="font-semibold text-amber-800">Você está próximo do limite do seu plano!</p>
+                        <p class="text-sm text-amber-700" id="limitWarningText">Restam apenas 5 animais no plano Free.</p>
+                    </div>
+                </div>
+                <button onclick="sgpec.showUpgradeModal()" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-sm">
+                    Fazer Upgrade
+                </button>
+            </div>
+
+            <!-- Voice Commands Quick Guide -->
+            <div id="voiceGuide" class="glass rounded-2xl p-6 mb-8 bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                            <i class="fas fa-microphone"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Comandos de Voz Rápidos</h3>
+                            <p class="text-sm text-gray-600">Clique no microfone e fale naturalmente</p>
+                        </div>
+                    </div>
+                    <span class="text-xs px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                        <i class="fas fa-bolt"></i> Disponível no seu plano
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg p-3 text-sm border border-emerald-100 cursor-pointer hover:shadow-md transition-all" onclick="sgpec.simulateVoice('Vaca brinco 642 recebeu vacina da brucelose')">
+                        <i class="fas fa-syringe text-blue-600 mb-1"></i>
+                        <p class="font-medium text-gray-700">"Vaca 642 recebeu vacina da brucelose"</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 text-sm border border-emerald-100 cursor-pointer hover:shadow-md transition-all" onclick="sgpec.simulateVoice('Vaca 678 pariu terneiro de 48kg')">
+                        <i class="fas fa-baby text-pink-600 mb-1"></i>
+                        <p class="font-medium text-gray-700">"Vaca 678 pariu terneiro de 48kg"</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 text-sm border border-emerald-100 cursor-pointer hover:shadow-md transition-all" onclick="sgpec.simulateVoice('Bezerra 123 pesou 180 quilos')">
+                        <i class="fas fa-weight text-amber-600 mb-1"></i>
+                        <p class="font-medium text-gray-700">"Bezerra 123 pesou 180 quilos"</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 text-sm border border-emerald-100 cursor-pointer hover:shadow-md transition-all" onclick="sgpec.simulateVoice('Mover animal 456 para piquete 12')">
+                        <i class="fas fa-exchange-alt text-purple-600 mb-1"></i>
+                        <p class="font-medium text-gray-700">"Mover animal 456 para piquete 12"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="glass rounded-2xl p-6 card-hover border-l-4 border-primary">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-primary">
+                            <i class="fas fa-cow text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">+12%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800" id="statTotalAnimais">0</h3>
+                    <p class="text-sm text-gray-600">Total de Animais</p>
+                    <div class="mt-2 text-xs text-gray-500" id="animaisLimitInfo">Limite: 50</div>
+                </div>
+
+                <div class="glass rounded-2xl p-6 card-hover border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                            <i class="fas fa-syringe text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full" id="statVacinasHoje">0 hoje</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800" id="statTotalVacinas">0</h3>
+                    <p class="text-sm text-gray-600">Vacinas Aplicadas</p>
+                </div>
+
+                <div class="glass rounded-2xl p-6 card-hover border-l-4 border-pink-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center text-pink-600">
+                            <i class="fas fa-baby text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-pink-600 bg-pink-100 px-2 py-1 rounded-full" id="statPartosMes">0 este mês</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800" id="statTotalPartos">0</h3>
+                    <p class="text-sm text-gray-600">Partos Registrados</p>
+                </div>
+
+                <div class="glass rounded-2xl p-6 card-hover border-l-4 border-purple-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+                            <i class="fas fa-vector-square text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-full" id="statOcupacao">0%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800" id="statTotalPiquetes">0</h3>
+                    <p class="text-sm text-gray-600">Piquetes Ativos</p>
+                    <div class="mt-2 text-xs text-gray-500" id="piquetesLimitInfo">Limite: 5</div>
+                </div>
+            </div>
+
+            <!-- AI Predictions Card (Premium Feature) -->
+            <div id="aiPredictionsCard" class="hidden mb-8 glass rounded-2xl p-6 border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white">
+                            <i class="fas fa-brain text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">Previsões de IA</h3>
+                            <p class="text-sm text-gray-600">Análises preditivas do seu rebanho</p>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">PREMIUM</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-weight text-purple-600"></i>
+                            <span class="font-medium text-gray-700">Previsão de Peso</span>
+                        </div>
+                        <p class="text-2xl font-bold text-purple-700">+15%</p>
+                        <p class="text-xs text-gray-500">Ganho estimado próximo mês</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-calendar-alt text-purple-600"></i>
+                            <span class="font-medium text-gray-700">Próximos Partos</span>
+                        </div>
+                        <p class="text-2xl font-bold text-purple-700">8</p>
+                        <p class="text-xs text-gray-500">Previstos para os próximos 30 dias</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-exclamation-triangle text-purple-600"></i>
+                            <span class="font-medium text-gray-700">Alertas de Saúde</span>
+                        </div>
+                        <p class="text-2xl font-bold text-purple-700">2</p>
+                        <p class="text-xs text-gray-500">Animais com risco identificado</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Atividades Recentes</h3>
+                    <div class="chart-container">
+                        <canvas id="atividadesChart"></canvas>
+                    </div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Distribuição do Rebanho</h3>
+                    <div class="chart-container">
+                        <canvas id="categoriaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Ações Rápidas</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onclick="sgpec.checkLimitAndExecute('animais', () => { sgpec.showSection('animais'); sgpec.openModal('addAnimal'); })" class="p-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-all text-center group">
+                        <i class="fas fa-plus-circle text-3xl text-primary mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="text-sm font-medium text-gray-700">Novo Animal</p>
+                    </button>
+                    <button onclick="sgpec.checkLimitAndExecute('piquetes', () => { sgpec.showSection('piquetes'); sgpec.openModal('addPiquete'); })" class="p-4 rounded-xl bg-blue-50 hover:bg-blue-100 transition-all text-center group">
+                        <i class="fas fa-draw-polygon text-3xl text-blue-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="text-sm font-medium text-gray-700">Novo Piquete</p>
+                    </button>
+                    <button onclick="sgpec.showSection('mapa')" class="p-4 rounded-xl bg-amber-50 hover:bg-amber-100 transition-all text-center group">
+                        <i class="fas fa-map-marker-alt text-3xl text-amber-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="text-sm font-medium text-gray-700">Ver Mapa</p>
+                    </button>
+                    <button onclick="sgpec.showSection('relatorios')" class="p-4 rounded-xl bg-purple-50 hover:bg-purple-100 transition-all text-center group">
+                        <i class="fas fa-file-excel text-3xl text-purple-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="text-sm font-medium text-gray-700">Exportar Dados</p>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Animais Section -->
+        <section id="animais" class="section-content hidden">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Gestão de Animais</h2>
+                    <p class="text-gray-600">Controle completo do seu rebanho</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sgpec.checkLimitAndExecute('animais', () => sgpec.openModal('addAnimal'))" class="px-6 py-3 bg-primary text-white rounded-xl hover:bg-secondary transition-all flex items-center gap-2 shadow-lg">
+                        <i class="fas fa-plus"></i> Novo Animal
+                    </button>
+                    <button onclick="sgpec.checkFeatureAndExecute('voice_commands', () => sgpec.toggleVoice())" class="px-6 py-3 bg-amber-100 text-amber-700 rounded-xl hover:bg-amber-200 transition-all flex items-center gap-2 shadow-lg">
+                        <i class="fas fa-microphone"></i> Comando de Voz
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="glass rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-center">
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" id="searchAnimais" placeholder="Buscar por brinco, nome ou raça..." 
+                           class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
+                           onkeyup="sgpec.filterAnimais()">
+                </div>
+                <select id="filterCategoria" onchange="sgpec.filterAnimais()" class="px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    <option value="">Todas as Categorias</option>
+                    <option value="Bezerra">Bezerras</option>
+                    <option value="Novilha">Novilhas</option>
+                    <option value="Vaca">Vacas</option>
+                    <option value="Touro">Touros</option>
+                    <option value="Terneiro">Terneiros</option>
+                </select>
+                <select id="filterPiquete" onchange="sgpec.filterAnimais()" class="px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    <option value="">Todos os Piquetes</option>
+                </select>
+                <select id="filterStatus" onchange="sgpec.filterAnimais()" class="px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    <option value="">Todos os Status</option>
+                    <option value="ativa">Ativa</option>
+                    <option value="gestante">Gestante</option>
+                    <option value="lactacao">Lactação</option>
+                    <option value="tratamento">Em Tratamento</option>
+                </select>
+                <button onclick="sgpec.resetFilters()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all">
+                    <i class="fas fa-undo"></i> Limpar
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="animaisGrid"></div>
+            
+            <!-- Empty State with Upgrade CTA -->
+            <div id="emptyAnimais" class="hidden text-center py-12">
+                <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-cow text-4xl text-gray-400"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Nenhum animal cadastrado</h3>
+                <p class="text-gray-500 mb-4">Comece adicionando seu primeiro animal ou importe dados existentes.</p>
+                <div class="flex justify-center gap-3">
+                    <button onclick="sgpec.openModal('addAnimal')" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary">
+                        <i class="fas fa-plus"></i> Adicionar Animal
+                    </button>
+                    <button onclick="sgpec.checkFeatureAndExecute('kml_import', () => sgpec.openModal('importKML'))" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-file-import"></i> Importar Dados
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Piquetes Section -->
+        <section id="piquetes" class="section-content hidden">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Gestão de Piquetes</h2>
+                    <p class="text-gray-600">Controle de pastagens, lotação e manejo</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sgpec.checkFeatureAndExecute('kml_import', () => sgpec.openModal('importKML'))" class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg">
+                        <i class="fas fa-file-import"></i> Importar KML
+                    </button>
+                    <button onclick="sgpec.checkLimitAndExecute('piquetes', () => sgpec.openModal('addPiquete'))" class="px-6 py-3 bg-primary text-white rounded-xl hover:bg-secondary transition-all flex items-center gap-2 shadow-lg">
+                        <i class="fas fa-plus"></i> Novo Piquete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Piquetes Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass rounded-2xl p-6 text-center">
+                    <div class="text-4xl font-bold text-primary mb-2" id="piqueteTotal">0</div>
+                    <p class="text-gray-600">Piquetes Cadastrados</p>
+                    <div class="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary w-3/4 rounded-full" id="piqueteUsageBar"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2" id="piqueteUsageText">0 de 5 usados</p>
+                </div>
+                
+                <div class="glass rounded-2xl p-6 text-center">
+                    <div class="text-4xl font-bold text-amber-600 mb-2" id="capacidadeTotal">0</div>
+                    <p class="text-gray-600">Capacidade Total (UA)</p>
+                    <div class="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-amber-500 w-1/2 rounded-full"></div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-2xl p-6 text-center">
+                    <div class="text-4xl font-bold text-emerald-600 mb-2" id="mediaDescanso">0</div>
+                    <p class="text-gray-600">Dias Médio de Descanso</p>
+                    <div class="mt-4 flex items-center justify-center gap-2">
+                        <span class="status-badge status-otimo">Ideal</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="piquetesGrid"></div>
+        </section>
+
+        <!-- Mapa Section -->
+        <section id="mapa" class="section-content hidden">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Mapa da Fazenda</h2>
+                    <p class="text-gray-600">Visualização geoespacial completa e histórico de lotação</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sgpec.toggleLayer('piquetes')" id="btnLayerPiquetes" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all flex items-center gap-2">
+                        <i class="fas fa-vector-square"></i> Piquetes
+                    </button>
+                    <button onclick="sgpec.checkFeatureAndExecute('animal_location', () => sgpec.toggleLayer('animais'))" id="btnLayerAnimais" class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2">
+                        <i class="fas fa-cow text-amber-600"></i> Animais
+                        <span class="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">PRO</span>
+                    </button>
+                    <button onclick="sgpec.toggleLayer('infra')" id="btnLayerInfra" class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2">
+                        <i class="fas fa-home text-blue-600"></i> Infraestrutura
+                    </button>
+                    <button onclick="sgpec.resetMap()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all">
+                        <i class="fas fa-compress-arrows-alt"></i> Resetar
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div class="glass rounded-2xl p-4">
+                        <div id="map"></div>
+                        <div class="mt-4 flex flex-wrap gap-4 text-sm">
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded bg-emerald-500/30 border-2 border-emerald-600"></div>
+                                <span>Piquete Ativo</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded bg-amber-500/30 border-2 border-amber-600"></div>
+                                <span>Em Descanso</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded bg-red-500/30 border-2 border-red-600"></div>
+                                <span>Superlotado</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded-full bg-blue-600"></div>
+                                <span>Água</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded-full bg-amber-800"></div>
+                                <span>Sombra</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Localização dos Animais</h3>
+                    <div class="space-y-3 max-h-[500px] overflow-y-auto" id="animalLocationList">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-lock text-3xl mb-2 text-gray-300"></i>
+                            <p class="text-sm">Recurso disponível nos planos Fazenda e Agropecuária</p>
+                            <button onclick="sgpec.showUpgradeModal('fazenda')" class="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-secondary">
+                                Fazer Upgrade
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Animal Location History -->
+            <div class="glass rounded-2xl p-6 mt-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Histórico de Lotação por Animal</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Brinco</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Nome</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Piquete Atual</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Entrada</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Dias no Piquete</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lotacaoTable" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Relatórios Section -->
+        <section id="relatorios" class="section-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Relatórios e Exportação</h2>
+                <p class="text-gray-600">Gere planilhas Excel e relatórios completos para análise</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Basic Export (Free) -->
+                <div class="glass rounded-2xl p-6 card-hover">
+                    <div class="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center text-primary mb-4">
+                        <i class="fas fa-cow text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Relatório de Animais</h3>
+                    <p class="text-sm text-gray-600 mb-4">Lista completa com dados individuais, histórico de peso, vacinas e reprodução.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('excel_export', () => sgpec.exportData('animais'))" class="w-full py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+
+                <div class="glass rounded-2xl p-6 card-hover">
+                    <div class="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 mb-4">
+                        <i class="fas fa-vector-square text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Relatório de Piquetes</h3>
+                    <p class="text-sm text-gray-600 mb-4">Dados de produtividade, ciclo de pastejo, lotação histórica e manejo.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('excel_export', () => sgpec.exportData('piquetes'))" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+
+                <!-- Advanced Stats (Produtor+) -->
+                <div class="glass rounded-2xl p-6 card-hover relative" id="statsReportCard">
+                    <div class="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
+                        <i class="fas fa-chart-pie text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Análise Estatística</h3>
+                    <p class="text-sm text-gray-600 mb-4">Indicadores de desempenho, curvas de crescimento e análise de produção.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('advanced_stats', () => sgpec.exportData('estatisticas'))" class="w-full py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+
+                <!-- Health Records (Produtor+) -->
+                <div class="glass rounded-2xl p-6 card-hover relative" id="vacinasReportCard">
+                    <div class="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 mb-4">
+                        <i class="fas fa-syringe text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Registro de Vacinas</h3>
+                    <p class="text-sm text-gray-600 mb-4">Controle sanitário, calendário vacinal e tratamentos realizados.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('advanced_stats', () => sgpec.exportData('vacinas'))" class="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+
+                <!-- Reproduction Records (Produtor+) -->
+                <div class="glass rounded-2xl p-6 card-hover relative" id="partosReportCard">
+                    <div class="w-14 h-14 rounded-xl bg-pink-100 flex items-center justify-center text-pink-600 mb-4">
+                        <i class="fas fa-baby text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Registro de Partos</h3>
+                    <p class="text-sm text-gray-600 mb-4">Dados reprodutivos, partos, inseminações e controle de matrizes.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('advanced_stats', () => sgpec.exportData('partos'))" class="w-full py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+
+                <!-- Complete Report (Produtor+) -->
+                <div class="glass rounded-2xl p-6 card-hover relative" id="completeReportCard">
+                    <div class="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 mb-4">
+                        <i class="fas fa-file-alt text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Relatório Completo</h3>
+                    <p class="text-sm text-gray-600 mb-4">Exportação completa de todos os dados do sistema em múltiplas abas.</p>
+                    <button onclick="sgpec.checkFeatureAndExecute('advanced_stats', () => sgpec.exportData('completo'))" class="w-full py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Exportar Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export Preview -->
+            <div class="glass rounded-2xl p-6 mt-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Pré-visualização de Dados</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">ID</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Brinco</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Nome</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Categoria</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Peso (kg)</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Piquete</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600 border-b">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100" id="previewTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Histórico Section -->
+        <section id="historico" class="section-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Histórico de Comandos de Voz</h2>
+                <p class="text-gray-600">Registro de todas as operações realizadas por comando de voz</p>
+            </div>
+            
+            <div class="glass rounded-2xl p-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Data/Hora</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Comando Original</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Ação Interpretada</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Entidades</th>
+                                <th class="px-4 py-3 text-sm font-medium text-gray-600">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historicoVozTable" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+                
+                <!-- Empty State for Free Plan -->
+                <div id="emptyHistoricoFree" class="hidden text-center py-12">
+                    <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-lock text-4xl text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Histórico disponível apenas para planos pagos</h3>
+                    <p class="text-gray-500 mb-4">Faça upgrade para o plano Produtor para acessar o histórico completo de comandos.</p>
+                    <button onclick="sgpec.showUpgradeModal('produtor')" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary">
+                        Ver Planos
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Planos Section -->
+        <section id="planos" class="section-content hidden">
+            <div class="mb-8 text-center">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Escolha seu Plano</h2>
+                <p class="text-gray-600">Comece gratuitamente e evolua conforme sua necessidade</p>
+            </div>
+
+            <!-- Current Plan Info -->
+            <div class="mb-8 glass rounded-2xl p-6 bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Plano Atual</p>
+                        <h3 class="text-2xl font-bold text-gray-800" id="currentPlanDisplay">Free</h3>
+                        <p class="text-sm text-gray-600 mt-1" id="planStatusDisplay">R$ 0/mês • Renovação: --</p>
+                    </div>
+                    <div class="text-right">
+                        <button onclick="sgpec.openModal('cancelSubscription')" id="cancelPlanBtn" class="hidden px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                            <i class="fas fa-times-circle"></i> Cancelar Assinatura
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plans Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Free Plan -->
+                <div class="glass rounded-2xl p-6 border-2 border-gray-200 hover:border-gray-300 transition-all relative">
+                    <div class="absolute top-0 right-0 bg-gray-100 text-gray-600 px-3 py-1 rounded-bl-lg rounded-tr-lg text-xs font-bold">ATUAL</div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Free</h3>
+                    <div class="text-3xl font-bold text-gray-900 mb-4">R$ 0<span class="text-sm font-normal text-gray-500">/mês</span></div>
+                    <ul class="space-y-3 mb-6 text-sm">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Até 50 animais</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> 5 piquetes</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Mapa básico</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-times text-gray-300"></i> <span class="text-gray-400">Comandos de voz</span></li>
+                        <li class="flex items-center gap-2"><i class="fas fa-times text-gray-300"></i> <span class="text-gray-400">Estatísticas avançadas</span></li>
+                        <li class="flex items-center gap-2"><i class="fas fa-times text-gray-300"></i> <span class="text-gray-400">Exportação Excel</span></li>
+                    </ul>
+                    <button disabled class="w-full py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">Plano Atual</button>
+                </div>
+
+                <!-- Produtor Plan -->
+                <div class="glass rounded-2xl p-6 border-2 border-blue-200 hover:border-blue-400 transition-all relative">
+                    <div class="absolute top-0 right-0 bg-blue-100 text-blue-700 px-3 py-1 rounded-bl-lg rounded-tr-lg text-xs font-bold">POPULAR</div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Produtor</h3>
+                    <div class="text-3xl font-bold text-blue-600 mb-4">R$ 49,90<span class="text-sm font-normal text-gray-500">/mês</span></div>
+                    <ul class="space-y-3 mb-6 text-sm">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Até 100 animais</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> 15 piquetes</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Comandos de voz</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Estatísticas avançadas</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Exportação Excel</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Importação KML</li>
+                    </ul>
+                    <button onclick="sgpec.startTrial('produtor')" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all">
+                        Começar Trial Grátis
+                    </button>
+                </div>
+
+                <!-- Fazenda Plan -->
+                <div class="glass rounded-2xl p-6 border-2 border-emerald-200 hover:border-emerald-400 transition-all">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Fazenda</h3>
+                    <div class="text-3xl font-bold text-emerald-600 mb-4">R$ 159,90<span class="text-sm font-normal text-gray-500">/mês</span></div>
+                    <ul class="space-y-3 mb-6 text-sm">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Animais ilimitados</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> 50 piquetes</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Todas as funcionalidades</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> IA com previsões</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Localização individual</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Múltiplos usuários</li>
+                    </ul>
+                    <button onclick="sgpec.startTrial('fazenda')" class="w-full py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all">
+                        Começar Trial Grátis
+                    </button>
+                </div>
+
+                <!-- Agropecuária Plan -->
+                <div class="glass rounded-2xl p-6 border-2 border-amber-200 hover:border-amber-400 transition-all">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Agropecuária</h3>
+                    <div class="text-3xl font-bold text-amber-600 mb-4">R$ 299,90<span class="text-sm font-normal text-gray-500">/mês</span></div>
+                    <ul class="space-y-3 mb-6 text-sm">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Tudo do plano Fazenda</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Múltiplas fazendas</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Suporte prioritário</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> API de integração</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> Treinamento incluso</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-emerald-500"></i> SLA garantido</li>
+                    </ul>
+                    <button onclick="sgpec.startTrial('agropecuaria')" class="w-full py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all">
+                        Começar Trial Grátis
+                    </button>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="mt-12 glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Perguntas Frequentes</h3>
+                <div class="space-y-4">
+                    <details class="group">
+                        <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                            <span class="font-medium text-gray-700">Posso mudar de plano a qualquer momento?</span>
+                            <i class="fas fa-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="p-4 text-gray-600 text-sm">Sim! Você pode fazer upgrade ou downgrade do seu plano a qualquer momento. As alterações entram em vigor imediatamente.</p>
+                    </details>
+                    <details class="group">
+                        <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                            <span class="font-medium text-gray-700">O que acontece se eu exceder o limite do meu plano?</span>
+                            <i class="fas fa-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="p-4 text-gray-600 text-sm">Você será notificado quando estiver próximo do limite. Para adicionar mais animais ou piquetes, será necessário fazer upgrade do plano.</p>
+                    </details>
+                    <details class="group">
+                        <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                            <span class="font-medium text-gray-700">Como funciona o trial de 7 dias?</span>
+                            <i class="fas fa-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="p-4 text-gray-600 text-sm">Você tem 7 dias para testar todas as funcionalidades do plano escolhido gratuitamente. Não é necessário cartão de crédito para iniciar o trial.</p>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Voice Command Panel -->
+    <div id="voicePanel" class="fixed top-[80px] left-0 right-0 bg-white shadow-lg border-b border-emerald-200 z-40">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fas fa-microphone-lines text-primary"></i>
+                        <span class="font-semibold text-gray-800">Assistente de Voz</span>
+                        <span id="listeningIndicator" class="hidden px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full animate-pulse">Ouvindo...</span>
+                    </div>
+                    <div id="voiceTranscript" class="text-lg text-gray-700 min-h-[2rem] italic text-gray-500">
+                        Diga um comando como: "Vaca brinco 642 recebeu vacina da brucelose"
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="sgpec.cancelVoiceCommand()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button onclick="sgpec.showVoiceHelp()" class="px-4 py-2 text-primary hover:text-secondary">
+                        <i class="fas fa-question-circle"></i> Ajuda
+                    </button>
+                </div>
+            </div>
+            
+            <!-- NLP Result -->
+            <div id="nlpResult" class="mt-4 hidden nlp-command rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-primary flex-shrink-0">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span id="nlpAction" class="action-badge">AÇÃO</span>
+                            <span id="nlpConfidence" class="text-xs text-gray-500">Confiança: 95%</span>
+                        </div>
+                        <div id="nlpParsed" class="text-sm text-gray-700 mb-3"></div>
+                        <div id="nlpEntities" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div class="flex gap-2">
+                            <button onclick="sgpec.confirmVoiceCommand()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary text-sm">
+                                <i class="fas fa-check"></i> Confirmar e Salvar
+                            </button>
+                            <button onclick="sgpec.editVoiceCommand()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Voice Help Modal -->
+    <div id="voiceHelpModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-3xl mx-4 slide-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Guia de Comandos de Voz</h3>
+                <button onclick="sgpec.closeModal('voiceHelp')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h4 class="font-semibold text-blue-800 mb-2"><i class="fas fa-syringe"></i> Vacinação</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li>• "Vaca brinco 642 recebeu vacina da brucelose"</li>
+                        <li>• "Aplicar vacina clostridial no animal 123"</li>
+                        <li>• "Novilha 456 tomou vacina de aftosa dose única"</li>
+                        <li>• "Registrar vacinação de raiva no brinco 789"</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                    <h4 class="font-semibold text-pink-800 mb-2"><i class="fas fa-baby"></i> Partos</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li>• "Vaca 678 pariu um terneiro de 48 quilos"</li>
+                        <li>• "Animal 234 deu cria a bezerra de 35kg"</li>
+                        <li>• "Registrar parto da vaca 567, terneiro macho 42kg"</li>
+                        <li>• "Nascimento no piquete 5, mãe 890, filhote 38kg"</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <h4 class="font-semibold text-amber-800 mb-2"><i class="fas fa-weight"></i> Pesagem</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li>• "Bezerra 123 pesou 180 quilos"</li>
+                        <li>• "Animal 345 está com 520kg"</li>
+                        <li>• "Registrar peso 485kg da novilha 678"</li>
+                        <li>• "Vaca 901 pesou 610 quilos hoje"</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <h4 class="font-semibold text-purple-800 mb-2"><i class="fas fa-exchange-alt"></i> Movimentação</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li>• "Mover animal 456 para o piquete 12"</li>
+                        <li>• "Transferir vaca 789 do piquete 3 para o 8"</li>
+                        <li>• "Colocar bezerra 234 no piquete de engorda"</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h4 class="font-semibold text-gray-800 mb-2"><i class="fas fa-stethoscope"></i> Saúde e Observações</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li>• "Animal 111 está com diarreia"</li>
+                        <li>• "Vaca 222 apresentando cólica, tratamento iniciado"</li>
+                        <li>• "Observação: bezerra 333 mancando pata traseira"</li>
+                        <li>• "Animal 444 em tratamento com antibiótico por 5 dias"</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                <p class="text-sm text-emerald-800">
+                    <i class="fas fa-lightbulb text-amber-500"></i> 
+                    <strong>Dica:</strong> Você pode falar naturalmente, usando sinônimos e diferentes estruturas. 
+                    O sistema entende "brinco", "número", "animal", "vaca", "novilha", etc.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Animal Modal -->
+    <div id="addAnimalModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-2xl mx-4 slide-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Cadastrar Novo Animal</h3>
+                <button onclick="sgpec.closeModal('addAnimal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="animalForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número do Brinco *</label>
+                        <input type="text" name="brinco" required class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome/Identificação</label>
+                        <input type="text" name="nome" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <select name="categoria" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                            <option>Bezerra</option>
+                            <option>Novilha</option>
+                            <option>Vaca</option>
+                            <option>Touro</option>
+                            <option>Terneiro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Raça</label>
+                        <select name="raca" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                            <option>Angus</option>
+                            <option>Hereford</option>
+                            <option>Brangus</option>
+                            <option>Nelore</option>
+                            <option>Cruzado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+                        <input type="number" name="peso" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Piquete</label>
+                        <select name="piquete" id="selectPiqueteAnimal" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea name="observacoes" rows="3" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="sgpec.closeModal('addAnimal')" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary">Salvar Animal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Piquete Modal -->
+    <div id="addPiqueteModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-2xl mx-4 slide-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Cadastrar Novo Piquete</h3>
+                <button onclick="sgpec.closeModal('addPiquete')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="piqueteForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Piquete *</label>
+                        <input type="text" name="nome" required class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Área (hectares)</label>
+                        <input type="number" step="0.01" name="area" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Capacidade (UA)</label>
+                        <input type="number" name="capacidade" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Pastagem</label>
+                        <select name="pastagem" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                            <option>Brachiaria brizantha</option>
+                            <option>Brachiaria decumbens</option>
+                            <option>Panicum maximum</option>
+                            <option>Cynodon dactylon</option>
+                            <option>Misto</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Coordenadas (GeoJSON)</label>
+                    <textarea name="coordenadas" rows="4" placeholder='{"type": "Polygon", "coordinates": [[[-47.5,-23.5],[-47.4,-23.5],[-47.4,-23.6],[-47.5,-23.6],[-47.5,-23.5]]]}' class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none font-mono text-sm"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Cole as coordenadas GeoJSON ou desenhe no mapa após salvar</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data de Plantio</label>
+                        <input type="date" name="plantio" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Último Pastejo</label>
+                        <input type="date" name="ultimoPastejo" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Infraestrutura Disponível</label>
+                    <div class="flex flex-wrap gap-4 mt-2">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="infra" value="agua" class="rounded text-primary w-4 h-4">
+                            <span class="text-sm">Água</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="infra" value="sombra" class="rounded text-primary w-4 h-4">
+                            <span class="text-sm">Sombra</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="infra" value="cerca" class="rounded text-primary w-4 h-4">
+                            <span class="text-sm">Cerca Elétrica</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="infra" value="tronco" class="rounded text-primary w-4 h-4">
+                            <span class="text-sm">Tronco</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="sgpec.closeModal('addPiquete')" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary">Salvar Piquete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import KML Modal -->
+    <div id="importKMLModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-2xl mx-4 slide-in">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Importar Arquivo KML/KMZ</h3>
+                <button onclick="sgpec.closeModal('importKML')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="kml-upload-zone" id="kmlDropZone" onclick="document.getElementById('kmlInput').click()">
+                <input type="file" id="kmlInput" accept=".kml,.kmz" class="hidden" onchange="sgpec.handleKMLUpload(event)">
+                <i class="fas fa-cloud-upload-alt text-5xl text-primary mb-4"></i>
+                <p class="text-lg font-medium text-gray-700 mb-2">Arraste o arquivo KML aqui</p>
+                <p class="text-sm text-gray-500">ou clique para selecionar</p>
+                <p class="text-xs text-gray-400 mt-4">Suporta arquivos .kml e .kmz do Google Earth</p>
+            </div>
+            
+            <div id="kmlPreview" class="mt-6 hidden">
+                <h4 class="font-medium text-gray-800 mb-3">Pré-visualização</h4>
+                <div class="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <pre id="kmlContent" class="text-xs text-gray-600"></pre>
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button onclick="sgpec.closeModal('importKML')" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">Cancelar</button>
+                    <button onclick="sgpec.processKML()" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all">Importar Dados</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div id="upgradeModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-2xl mx-4 slide-in">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Funcionalidade Premium</h3>
+                <button onclick="sgpec.closeModal('upgrade')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="upsell-card rounded-xl p-6 mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
+                        <i class="fas fa-crown text-3xl text-primary"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-bold text-gray-800" id="upgradeFeatureTitle">Recurso Exclusivo</h4>
+                        <p class="text-gray-600" id="upgradeFeatureDesc">Esta funcionalidade está disponível apenas em planos pagos.</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-3 mb-6">
+                    <div class="upsell-feature">
+                        <i class="fas fa-check-circle text-emerald-500"></i>
+                        <span class="text-gray-700">Comandos de voz ilimitados</span>
+                    </div>
+                    <div class="upsell-feature">
+                        <i class="fas fa-check-circle text-emerald-500"></i>
+                        <span class="text-gray-700">Estatísticas avançadas e relatórios</span>
+                    </div>
+                    <div class="upsell-feature">
+                        <i class="fas fa-check-circle text-emerald-500"></i>
+                        <span class="text-gray-700">Exportação para Excel</span>
+                    </div>
+                    <div class="upsell-feature">
+                        <i class="fas fa-check-circle text-emerald-500"></i>
+                        <span class="text-gray-700">Importação de KML</span>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="sgpec.startTrial('produtor')" class="flex-1 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-secondary transition-all">
+                        Testar Grátis por 7 Dias
+                    </button>
+                    <button onclick="sgpec.showSection('planos'); sgpec.closeModal('upgrade')" class="flex-1 py-3 border-2 border-primary text-primary rounded-xl font-semibold hover:bg-emerald-50 transition-all">
+                        Ver Todos os Planos
+                    </button>
+                </div>
+            </div>
+            
+            <p class="text-center text-sm text-gray-500">
+                Não é necessário cartão de crédito para o trial. Cancele a qualquer momento.
+            </p>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-2xl mx-4 slide-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Configurações da Conta</h3>
+                <button onclick="sgpec.closeModal('settings')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Profile Section -->
+                <div class="border-b border-gray-200 pb-6">
+                    <h4 class="font-semibold text-gray-800 mb-4">Perfil</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                            <input type="text" id="settingsName" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none" value="Administrador">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Fazenda</label>
+                            <input type="text" id="settingsFarm" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none" value="Fazenda Modelo">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="settingsEmail" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary outline-none bg-gray-50" value="admin@fazenda.com" readonly>
+                    </div>
+                </div>
+
+                <!-- Plan Section -->
+                <div class="border-b border-gray-200 pb-6">
+                    <h4 class="font-semibold text-gray-800 mb-4">Assinatura</h4>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">Plano Atual</span>
+                            <span class="font-semibold text-gray-800" id="settingsPlanName">Free</span>
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">Status</span>
+                            <span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium" id="settingsPlanStatus">Ativo</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Próxima cobrança</span>
+                            <span class="font-medium text-gray-800" id="settingsNextBilling">--</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex gap-3">
+                        <button onclick="sgpec.showSection('planos'); sgpec.closeModal('settings')" class="flex-1 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-all">
+                            Alterar Plano
+                        </button>
+                        <button onclick="sgpec.openModal('cancelSubscription')" id="settingsCancelBtn" class="hidden flex-1 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all">
+                            Cancelar Assinatura
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div class="border-b border-gray-200 pb-6">
+                    <h4 class="font-semibold text-gray-800 mb-4">Notificações</h4>
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" checked class="rounded text-primary w-5 h-5">
+                            <span class="text-gray-700">Alertas de limite do plano</span>
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" checked class="rounded text-primary w-5 h-5">
+                            <span class="text-gray-700">Lembretes de vacinação</span>
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" class="rounded text-primary w-5 h-5">
+                            <span class="text-gray-700">Relatórios semanais por email</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div>
+                    <h4 class="font-semibold text-red-600 mb-4">Zona de Perigo</h4>
+                    <button onclick="sgpec.exportData('completo')" class="w-full py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all mb-3">
+                        <i class="fas fa-download"></i> Exportar Todos os Dados
+                    </button>
+                    <button onclick="sgpec.confirmDeleteAccount()" class="w-full py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all">
+                        <i class="fas fa-trash"></i> Excluir Conta e Dados
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Subscription Modal -->
+    <div id="cancelSubscriptionModal" class="modal">
+        <div class="glass rounded-2xl p-6 w-full max-w-md mx-4 slide-in">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Cancelar Assinatura?</h3>
+                <p class="text-gray-600">Você perderá acesso às funcionalidades premium ao final do período pago.</p>
+            </div>
+            
+            <div class="bg-amber-50 rounded-lg p-4 mb-6 text-left">
+                <p class="text-sm text-amber-800 mb-2"><strong>O que acontecerá:</strong></p>
+                <ul class="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                    <li>Seus dados serão preservados</li>
+                    <li>Você será movido para o plano Free</li>
+                    <li>Limites de 50 animais e 5 piquetes</li>
+                    <li>Acesso apenas a funcionalidades básicas</li>
+                </ul>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="sgpec.closeModal('cancelSubscription')" class="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">
+                    Manter Assinatura
+                </button>
+                <button onclick="sgpec.confirmCancelSubscription()" class="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all">
+                    Confirmar Cancelamento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3">
+        <i class="fas fa-check-circle text-emerald-400"></i>
+        <span id="toastMessage">Operação realizada com sucesso!</span>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        /**
+         * SGPEC - Sistema de Gestão de Pecuária
+         * Versão completa com Feature Flags, Planos e Stripe Integration
+         */
+        const sgpec = {
+            // State
+            map: null,
+            recognition: null,
+            isListening: false,
+            currentNLPResult: null,
+            
+            // Plan Configuration
+            plans: {
+                free: {
+                    name: 'Free',
+                    price: 0,
+                    limits: { animais: 50, piquetes: 5 },
+                    features: {
+                        voice_commands: false,
+                        advanced_stats: false,
+                        excel_export: false,
+                        kml_import: false,
+                        animal_location: false,
+                        ai_predictions: false,
+                        multi_farm: false,
+                        priority_support: false
+                    }
+                },
+                produtor: {
+                    name: 'Produtor',
+                    price: 49.90,
+                    limits: { animais: 100, piquetes: 15 },
+                    features: {
+                        voice_commands: true,
+                        advanced_stats: true,
+                        excel_export: true,
+                        kml_import: true,
+                        animal_location: false,
+                        ai_predictions: false,
+                        multi_farm: false,
+                        priority_support: false
+                    }
+                },
+                fazenda: {
+                    name: 'Fazenda',
+                    price: 159.90,
+                    limits: { animais: Infinity, piquetes: 50 },
+                    features: {
+                        voice_commands: true,
+                        advanced_stats: true,
+                        excel_export: true,
+                        kml_import: true,
+                        animal_location: true,
+                        ai_predictions: true,
+                        multi_farm: false,
+                        priority_support: false
+                    }
+                },
+                agropecuaria: {
+                    name: 'Agropecuária',
+                    price: 299.90,
+                    limits: { animais: Infinity, piquetes: Infinity },
+                    features: {
+                        voice_commands: true,
+                        advanced_stats: true,
+                        excel_export: true,
+                        kml_import: true,
+                        animal_location: true,
+                        ai_predictions: true,
+                        multi_farm: true,
+                        priority_support: true
+                    }
+                }
+            },
+
+            // User State
+            user: {
+                plan: 'free',
+                trial: null, // { plan: 'produtor', startDate: '2024-01-01', endDate: '2024-01-08' }
+                stripeCustomerId: null,
+                stripeSubscriptionId: null
+            },
+            
+            // Data Storage
+            data: {
+                animais: [],
+                piquetes: [],
+                vacinas: [],
+                partos: [],
+                pesagens: [],
+                movimentos: [],
+                observacoes: [],
+                voiceHistory: []
+            },
+            
+            // Map Layers
+            layers: {
+                piquetes: [],
+                animais: [],
+                infra: []
+            },
+            
+            // NLP Patterns for Voice Recognition
+            nlpPatterns: {
+                vacina: {
+                    patterns: [
+                        /(?:vaca|novilha|bezerra|animal|brinco|número|numero)\s*(?:número|numero|brinco|n°|nº)?\s*(\d+).*?(?:recebeu|tomou|aplicar|vacina|vacinada|dose).*?(?:vacina|vacinação)?\s*(?:de|da|do)?\s*([\w\s]+)/i,
+                        /(?:aplicar|dar|administrar).*?(?:vacina|vacinação).*?(?:de|da|do)?\s*([\w\s]+).*?(?:no|na|animal|brinco|número|numero)?\s*(\d+)/i,
+                        /(\d+).*?(?:recebeu|tomou|vacina|vacinada).*?(?:de|da|do)?\s*([\w\s]+)/i
+                    ],
+                    entities: ['brinco', 'vacina', 'dose'],
+                    action: 'vacina'
+                },
+                parto: {
+                    patterns: [
+                        /(?:vaca|novilha|animal|brinco|número|numero)\s*(?:número|numero|brinco|n°|nº)?\s*(\d+).*?(?:pariu|deu cria|parto|nasceu|nascimento).*?(?:terneiro|bezerra|cria|filhote)?\s*(?:de|com|pesando)?\s*(\d+)\s*(?:kg|quilos|quilo)?/i,
+                        /(?:registrar|anotar).*?(?:parto|nascimento).*?(?:da|do|animal|brinco)?\s*(\d+).*?(?:terneiro|bezerra)?\s*(?:de)?\s*(\d+)/i,
+                        /(?:terneiro|bezerra|cria).*?(?:de|da)?\s*(?:mãe|vaca)?\s*(\d+).*?(?:pesando|de|com)?\s*(\d+)/i
+                    ],
+                    entities: ['brincoMae', 'pesoCria', 'sexoCria'],
+                    action: 'parto'
+                },
+                pesagem: {
+                    patterns: [
+                        /(?:bezerra|novilha|vaca|animal|brinco|número|numero)\s*(?:número|numero|brinco|n°|nº)?\s*(\d+).*?(?:pesou|pesando|está com|pesa|pesagem).*?(\d+)\s*(?:kg|quilos|quilo)?/i,
+                        /(?:pesar|registrar peso).*?(?:animal|brinco|número|numero)?\s*(\d+).*?(\d+)\s*(?:kg|quilos)?/i,
+                        /(\d+).*?(?:pesou|pesa|está com).*?(\d+)\s*(?:kg|quilos)/i
+                    ],
+                    entities: ['brinco', 'peso', 'data'],
+                    action: 'pesagem'
+                },
+                movimento: {
+                    patterns: [
+                        /(?:mover|transferir|colocar|levar).*?(?:animal|brinco|vaca|novilha)?\s*(\d+).*?(?:para|ao|pro|pra)?\s*(?:piquete)?\s*(\d+|[\w\s]+)/i,
+                        /(\d+).*?(?:foi movida|mudou|transferida).*?(?:para|pro|pra)?\s*(?:piquete)?\s*(\d+|[\w\s]+)/i
+                    ],
+                    entities: ['brinco', 'piqueteDestino', 'data'],
+                    action: 'movimento'
+                },
+                observacao: {
+                    patterns: [
+                        /(?:animal|brinco|vaca|novilha)\s*(\d+).*?(?:está|esta|apresenta|com|sentindo).*?([\w\s,.]+)/i,
+                        /(?:observação|observacao|anotar|registrar).*?(?:animal|brinco)?\s*(\d+).*?:?\s*([\w\s,.]+)/i
+                    ],
+                    entities: ['brinco', 'observacao', 'sintomas'],
+                    action: 'observacao'
+                }
+            },
+
+            /**
+             * Initialize Application
+             */
+            init() {
+                this.loadUserData();
+                this.loadData();
+                this.initCharts();
+                this.renderAll();
+                this.initMap();
+                this.initVoiceRecognition();
+                this.setupEventListeners();
+                this.updateStats();
+                this.updatePlanUI();
+                this.checkLimits();
+                
+                // Check for demo commands in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const demo = urlParams.get('demo');
+                if (demo) {
+                    setTimeout(() => this.simulateVoice(demo), 1000);
+                }
+
+                // Check trial status daily
+                this.checkTrialStatus();
+            },
+
+            /**
+             * User & Plan Management
+             */
+            loadUserData() {
+                const saved = localStorage.getItem('sgpec_user');
+                if (saved) {
+                    this.user = JSON.parse(saved);
+                } else {
+                    // Initialize with free plan
+                    this.user = {
+                        plan: 'free',
+                        trial: null,
+                        stripeCustomerId: null,
+                        stripeSubscriptionId: null
+                    };
+                    this.saveUserData();
+                }
+            },
+
+            saveUserData() {
+                localStorage.setItem('sgpec_user', JSON.stringify(this.user));
+            },
+
+            getCurrentPlan() {
+                // Check if in trial period
+                if (this.user.trial && this.isTrialActive()) {
+                    return this.plans[this.user.trial.plan];
+                }
+                return this.plans[this.user.plan];
+            },
+
+            isTrialActive() {
+                if (!this.user.trial) return false;
+                const now = new Date();
+                const endDate = new Date(this.user.trial.endDate);
+                return now <= endDate;
+            },
+
+            getTrialDaysLeft() {
+                if (!this.user.trial || !this.isTrialActive()) return 0;
+                const now = new Date();
+                const endDate = new Date(this.user.trial.endDate);
+                const diffTime = endDate - now;
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            },
+
+            startTrial(plan) {
+                const now = new Date();
+                const endDate = new Date();
+                endDate.setDate(now.getDate() + 7);
+                
+                this.user.trial = {
+                    plan: plan,
+                    startDate: now.toISOString(),
+                    endDate: endDate.toISOString()
+                };
+                
+                this.saveUserData();
+                this.updatePlanUI();
+                this.showToast(`Trial de 7 dias do plano ${this.plans[plan].name} iniciado!`);
+                this.showSection('dashboard');
+            },
+
+            checkTrialStatus() {
+                if (this.user.trial && !this.isTrialActive() && this.user.plan === 'free') {
+                    // Trial ended, revert to free
+                    this.user.trial = null;
+                    this.saveUserData();
+                    this.updatePlanUI();
+                    this.showToast('Seu trial expirou. Você foi movido para o plano Free.');
+                }
+            },
+
+            /**
+             * Feature Flags System
+             */
+            hasFeature(featureName) {
+                const plan = this.getCurrentPlan();
+                return plan.features[featureName] === true;
+            },
+
+            checkFeatureAndExecute(featureName, callback) {
+                if (this.hasFeature(featureName)) {
+                    callback();
+                } else {
+                    this.showUpgradeModalForFeature(featureName);
+                }
+            },
+
+            checkLimitAndExecute(resourceType, callback) {
+                const plan = this.getCurrentPlan();
+                const current = this.data[resourceType].length;
+                const limit = plan.limits[resourceType];
+
+                if (limit === Infinity || current < limit) {
+                    callback();
+                } else {
+                    this.showLimitReachedModal(resourceType, limit);
+                }
+            },
+
+            showUpgradeModalForFeature(featureName) {
+                const featureNames = {
+                    voice_commands: 'Comandos de Voz',
+                    advanced_stats: 'Estatísticas Avançadas',
+                    excel_export: 'Exportação Excel',
+                    kml_import: 'Importação KML',
+                    animal_location: 'Localização de Animais',
+                    ai_predictions: 'Previsões de IA'
+                };
+                
+                document.getElementById('upgradeFeatureTitle').textContent = featureNames[featureName] || 'Recurso Premium';
+                document.getElementById('upgradeFeatureDesc').textContent = 
+                    `A funcionalidade "${featureNames[featureName]}" está disponível apenas em planos pagos.`;
+                
+                this.openModal('upgrade');
+            },
+
+            showLimitReachedModal(resourceType, limit) {
+                const resourceNames = { animais: 'animais', piquetes: 'piquetes' };
+                document.getElementById('upgradeFeatureTitle').textContent = 'Limite Atingido';
+                document.getElementById('upgradeFeatureDesc').textContent = 
+                    `Você atingiu o limite de ${limit} ${resourceNames[resourceType]} do seu plano. Faça upgrade para adicionar mais.`;
+                this.openModal('upgrade');
+            },
+
+            /**
+             * Data Management
+             */
+            loadData() {
+                const saved = localStorage.getItem('sgpec_data');
+                if (saved) {
+                    this.data = JSON.parse(saved);
+                } else {
+                    this.initializeDemoData();
+                }
+            },
+
+            saveData() {
+                localStorage.setItem('sgpec_data', JSON.stringify(this.data));
+            },
+
+            initializeDemoData() {
+                const hoje = new Date().toISOString().split('T')[0];
+                
+                this.data.animais = [
+                    { id: 1, brinco: '642', nome: 'Mimosa', categoria: 'Vaca', raca: 'Angus', peso: 520, piquete: 'Piquete 1', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2020-03-15' },
+                    { id: 2, brinco: '678', nome: 'Estrela', categoria: 'Vaca', raca: 'Brangus', peso: 580, piquete: 'Piquete 2', status: 'lactacao', ultimaPesagem: hoje, dataNascimento: '2019-05-20', ultimoParto: '2024-01-10' },
+                    { id: 3, brinco: '123', nome: 'Bela', categoria: 'Bezerra', raca: 'Cruzado', peso: 180, piquete: 'Piquete 3', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2023-06-10' },
+                    { id: 4, brinco: '456', nome: 'Princesa', categoria: 'Novilha', raca: 'Nelore', peso: 420, piquete: 'Piquete 4', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2022-02-28' },
+                    { id: 5, brinco: '789', nome: 'Linda', categoria: 'Vaca', raca: 'Hereford', peso: 595, piquete: 'Piquete 1', status: 'gestante', ultimaPesagem: hoje, dataNascimento: '2018-08-12' },
+                    { id: 6, brinco: '234', nome: 'Preta', categoria: 'Bezerra', raca: 'Angus', peso: 195, piquete: 'Piquete 3', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2023-05-15' },
+                    { id: 7, brinco: '567', nome: 'Malhada', categoria: 'Vaca', raca: 'Brangus', peso: 610, piquete: 'Piquete 2', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2017-11-03' },
+                    { id: 8, brinco: '890', nome: 'Branquinha', categoria: 'Vaca', raca: 'Nelore', peso: 540, piquete: 'Piquete 5', status: 'ativa', ultimaPesagem: hoje, dataNascimento: '2019-01-25' },
+                ];
+
+                this.data.piquetes = [
+                    { id: 1, nome: 'Piquete 1', area: 12.5, capacidade: 40, ocupacao: 35, status: 'ativo', pastagem: 'Brachiaria brizantha', ultimoPastejo: '2024-01-10', diasDescanso: 15, coordenadas: [[-23.5, -47.5], [-23.5, -47.4], [-23.6, -47.4], [-23.6, -47.5]], infra: ['agua', 'sombra', 'cerca'] },
+                    { id: 2, nome: 'Piquete 2', area: 10.0, capacidade: 32, ocupacao: 28, status: 'ativo', pastagem: 'Panicum maximum', ultimoPastejo: '2024-01-08', diasDescanso: 17, coordenadas: [[-23.6, -47.5], [-23.6, -47.4], [-23.7, -47.4], [-23.7, -47.5]], infra: ['agua', 'cerca'] },
+                    { id: 3, nome: 'Piquete 3', area: 15.0, capacidade: 48, ocupacao: 45, status: 'descanso', pastagem: 'Brachiaria decumbens', ultimoPastejo: '2023-12-20', diasDescanso: 35, coordenadas: [[-23.5, -47.6], [-23.5, -47.5], [-23.6, -47.5], [-23.6, -47.6]], infra: ['agua', 'sombra'] },
+                    { id: 4, nome: 'Piquete 4', area: 8.5, capacidade: 27, ocupacao: 25, status: 'ativo', pastagem: 'Cynodon dactylon', ultimoPastejo: '2024-01-12', diasDescanso: 13, coordenadas: [[-23.6, -47.6], [-23.6, -47.5], [-23.7, -47.5], [-23.7, -47.6]], infra: ['cerca'] },
+                    { id: 5, nome: 'Piquete 5', area: 20.0, capacidade: 60, ocupacao: 55, status: 'superlotado', pastagem: 'Misto', ultimoPastejo: '2024-01-05', diasDescanso: 20, coordenadas: [[-23.4, -47.5], [-23.4, -47.4], [-23.5, -47.4], [-23.5, -47.5]], infra: ['agua', 'sombra', 'cerca', 'tronco'] },
+                ];
+
+                this.data.lotacaoHistory = [
+                    { animal: '642', nome: 'Mimosa', piquete: 'Piquete 1', entrada: '2024-01-01', dias: 18 },
+                    { animal: '678', nome: 'Estrela', piquete: 'Piquete 2', entrada: '2023-12-15', dias: 35 },
+                    { animal: '789', nome: 'Linda', piquete: 'Piquete 1', entrada: '2024-01-05', dias: 14 },
+                    { animal: '890', nome: 'Branquinha', piquete: 'Piquete 5', entrada: '2023-11-20', dias: 60 },
+                    { animal: '123', nome: 'Bela', piquete: 'Piquete 3', entrada: '2024-01-10', dias: 9 },
+                    { animal: '456', nome: 'Princesa', piquete: 'Piquete 4', entrada: '2023-12-28', dias: 22 },
+                ];
+
+                this.saveData();
+            },
+
+            /**
+             * Voice Recognition & NLP
+             */
+            initVoiceRecognition() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    console.warn('Speech recognition not supported');
+                    return;
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                this.recognition.lang = 'pt-BR';
+                this.recognition.continuous = false;
+                this.recognition.interimResults = true;
+                this.recognition.maxAlternatives = 1;
+
+                this.recognition.onstart = () => {
+                    this.isListening = true;
+                    document.getElementById('voiceWave').classList.add('listening');
+                    document.getElementById('voiceStatus').classList.remove('hidden');
+                    document.getElementById('listeningIndicator').classList.remove('hidden');
+                    document.getElementById('voicePanel').classList.add('active');
+                    document.getElementById('voiceTranscript').textContent = 'Ouvindo...';
+                    document.getElementById('nlpResult').classList.add('hidden');
+                };
+
+                this.recognition.onend = () => {
+                    this.isListening = false;
+                    document.getElementById('voiceWave').classList.remove('listening');
+                    document.getElementById('voiceStatus').classList.add('hidden');
+                    document.getElementById('listeningIndicator').classList.add('hidden');
+                };
+
+                this.recognition.onresult = (event) => {
+                    const results = event.results;
+                    const transcript = results[results.length - 1][0].transcript;
+                    
+                    document.getElementById('voiceTranscript').textContent = transcript;
+                    
+                    if (results[results.length - 1].isFinal) {
+                        this.processNLP(transcript);
+                    }
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    this.showToast('Erro no reconhecimento: ' + event.error);
+                    this.hideVoicePanel();
+                };
+            },
+
+            toggleVoice() {
+                if (!this.recognition) {
+                    this.showToast('Reconhecimento de voz não suportado neste navegador');
+                    return;
+                }
+
+                if (this.isListening) {
+                    this.recognition.stop();
+                    this.hideVoicePanel();
+                } else {
+                    this.recognition.start();
+                }
+            },
+
+            hideVoicePanel() {
+                document.getElementById('voicePanel').classList.remove('active');
+                document.getElementById('nlpResult').classList.add('hidden');
+                this.currentNLPResult = null;
+            },
+
+            cancelVoiceCommand() {
+                this.recognition.stop();
+                this.hideVoicePanel();
+            },
+
+            showVoiceHelp() {
+                this.openModal('voiceHelp');
+            },
+
+            simulateVoice(text) {
+                // Simulate voice command for demo purposes
+                document.getElementById('voicePanel').classList.add('active');
+                document.getElementById('voiceTranscript').textContent = text;
+                setTimeout(() => this.processNLP(text), 500);
+            },
+
+            /**
+             * Natural Language Processing Engine
+             */
+            processNLP(transcript) {
+                console.log('Processing NLP:', transcript);
+                
+                const normalized = this.normalizeText(transcript);
+                let result = null;
+                let maxConfidence = 0;
+
+                // Try each action type
+                for (const [actionType, config] of Object.entries(this.nlpPatterns)) {
+                    for (const pattern of config.patterns) {
+                        const match = normalized.match(pattern);
+                        if (match) {
+                            const confidence = this.calculateConfidence(match, normalized, actionType);
+                            if (confidence > maxConfidence) {
+                                maxConfidence = confidence;
+                                result = this.extractEntities(match, actionType, transcript);
+                            }
+                        }
+                    }
+                }
+
+                if (result && maxConfidence > 0.3) {
+                    result.confidence = maxConfidence;
+                    result.rawText = transcript;
+                    this.currentNLPResult = result;
+                    this.displayNLPResult(result);
+                } else {
+                    document.getElementById('voiceTranscript').innerHTML += 
+                        '<br><span class="text-red-500 text-sm">Não entendi. Tente reformular ou consulte o guia de comandos.</span>';
+                    setTimeout(() => this.hideVoicePanel(), 3000);
+                }
+            },
+
+            normalizeText(text) {
+                return text.toLowerCase()
+                    .replace(/[áàâã]/g, 'a')
+                    .replace(/[éèê]/g, 'e')
+                    .replace(/[íìî]/g, 'i')
+                    .replace(/[óòôõ]/g, 'o')
+                    .replace(/[úùû]/g, 'u')
+                    .replace(/[ç]/g, 'c')
+                    .replace(/[^\w\s]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            },
+
+            calculateConfidence(match, text, actionType) {
+                let score = 0.5;
+                
+                const keywords = {
+                    vacina: ['vacina', 'vacinacao', 'dose', 'aplicar', 'tomou', 'recebeu'],
+                    parto: ['pariu', 'parto', 'nascimento', 'nasceu', 'cria', 'terneiro', 'bezerra'],
+                    pesagem: ['peso', 'pesou', 'pesando', 'quilos', 'kg', 'pesa'],
+                    movimento: ['mover', 'transferir', 'mudou', 'piquete', 'colocar'],
+                    observacao: ['observacao', 'esta', 'sentindo', 'com', 'sintoma']
+                };
+                
+                const actionKeywords = keywords[actionType] || [];
+                actionKeywords.forEach(keyword => {
+                    if (text.includes(keyword)) score += 0.1;
+                });
+                
+                if (/\d+/.test(text)) score += 0.2;
+                if (text.length < 10) score -= 0.2;
+                
+                return Math.min(score, 1.0);
+            },
+
+            extractEntities(match, actionType, rawText) {
+                const result = {
+                    action: actionType,
+                    entities: {},
+                    rawText: rawText,
+                    timestamp: new Date().toISOString()
+                };
+
+                const hoje = new Date().toISOString().split('T')[0];
+
+                switch(actionType) {
+                    case 'vacina':
+                        result.entities.brinco = this.findBrinco(match, rawText);
+                        result.entities.vacina = this.extractVacinaName(match, rawText);
+                        result.entities.dose = this.extractDose(rawText);
+                        result.entities.data = hoje;
+                        break;
+                        
+                    case 'parto':
+                        result.entities.brincoMae = match[1] || this.findBrincoInText(rawText);
+                        result.entities.pesoCria = parseInt(match[2]) || null;
+                        result.entities.sexoCria = this.extractSexo(rawText);
+                        result.entities.data = hoje;
+                        result.entities.observacoes = '';
+                        break;
+                        
+                    case 'pesagem':
+                        result.entities.brinco = match[1] || this.findBrincoInText(rawText);
+                        result.entities.peso = parseInt(match[2]) || null;
+                        result.entities.data = hoje;
+                        break;
+                        
+                    case 'movimento':
+                        result.entities.brinco = match[1];
+                        result.entities.piqueteDestino = match[2];
+                        result.entities.data = hoje;
+                        break;
+                        
+                    case 'observacao':
+                        result.entities.brinco = match[1];
+                        result.entities.observacao = match[2];
+                        result.entities.sintomas = this.extractSintomas(match[2]);
+                        result.entities.data = hoje;
+                        break;
+                }
+
+                return result;
+            },
+
+            findBrinco(match, text) {
+                for (let i = 1; i < match.length; i++) {
+                    if (match[i] && /^\d+$/.test(match[i].trim())) {
+                        return match[i].trim();
+                    }
+                }
+                return this.findBrincoInText(text);
+            },
+
+            findBrincoInText(text) {
+                const patterns = [
+                    /brinco\s*(?:número|numero|n°|nº)?\s*(\d+)/i,
+                    /animal\s*(?:número|numero|n°|nº)?\s*(\d+)/i,
+                    /(?:vaca|novilha|bezerra)\s*(?:número|numero|n°|nº)?\s*(\d+)/i,
+                    /\b(\d{2,4})\b/
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match) return match[1];
+                }
+                return null;
+            },
+
+            extractVacinaName(match, text) {
+                const vacinas = [
+                    'brucelose', 'aftosa', 'clostridial', 'leptospirose', 'raiva', 
+                    'ibr', 'bvd', 'pi3', 'vibriose', 'tricomonose'
+                ];
+                
+                const normalized = text.toLowerCase();
+                for (const vacina of vacinas) {
+                    if (normalized.includes(vacina)) {
+                        return vacina.charAt(0).toUpperCase() + vacina.slice(1);
+                    }
+                }
+                
+                for (let i = 2; i < match.length; i++) {
+                    if (match[i] && match[i].trim().length > 2) {
+                        return match[i].trim();
+                    }
+                }
+                
+                return 'Não especificada';
+            },
+
+            extractDose(text) {
+                if (/dose\s*única|unica|primeira|1ª|1a/i.test(text)) return 'Única';
+                if (/primeira|1ª|1a|primeiro/i.test(text)) return '1ª Dose';
+                if (/segunda|2ª|2a|segundo/i.test(text)) return '2ª Dose';
+                if (/terceira|3ª|3a|terceiro/i.test(text)) return '3ª Dose';
+                if (/reforço|reforco/i.test(text)) return 'Reforço';
+                return 'Não especificada';
+            },
+
+            extractSexo(text) {
+                const normalized = text.toLowerCase();
+                if (/macho|terneiro|touro/i.test(normalized)) return 'Macho';
+                if (/fêmea|femea|bezerra|novilha/i.test(normalized)) return 'Fêmea';
+                return 'Não especificado';
+            },
+
+            extractSintomas(text) {
+                const sintomas = [];
+                const sintomasList = ['diarreia', 'cólica', 'colica', 'febre', 'tosse', 'mancando', 
+                                     'inapetente', 'abatida', 'ferida', 'inchaço', 'inchaco'];
+                
+                sintomasList.forEach(s => {
+                    if (text.toLowerCase().includes(s)) sintomas.push(s);
+                });
+                
+                return sintomas;
+            },
+
+            displayNLPResult(result) {
+                const nlpResult = document.getElementById('nlpResult');
+                const nlpAction = document.getElementById('nlpAction');
+                const nlpConfidence = document.getElementById('nlpConfidence');
+                const nlpParsed = document.getElementById('nlpParsed');
+                const nlpEntities = document.getElementById('nlpEntities');
+                
+                nlpResult.classList.remove('hidden');
+                
+                const actionLabels = {
+                    vacina: { text: 'VACINAÇÃO', class: 'action-vacina', icon: 'fa-syringe' },
+                    parto: { text: 'PARTO', class: 'action-parto', icon: 'fa-baby' },
+                    pesagem: { text: 'PESAGEM', class: 'action-pesagem', icon: 'fa-weight' },
+                    movimento: { text: 'MOVIMENTAÇÃO', class: 'action-movimento', icon: 'fa-exchange-alt' },
+                    observacao: { text: 'OBSERVAÇÃO', class: 'action-observacao', icon: 'fa-stethoscope' }
+                };
+                
+                const action = actionLabels[result.action];
+                nlpAction.className = `action-badge ${action.class}`;
+                nlpAction.innerHTML = `<i class="fas ${action.icon}"></i> ${action.text}`;
+                
+                nlpConfidence.textContent = `Confiança: ${Math.round(result.confidence * 100)}%`;
+                
+                let description = '';
+                switch(result.action) {
+                    case 'vacina':
+                        description = `Registrar vacinação de <span class="entity-highlight">${result.entities.vacina}</span> no animal <span class="entity-highlight">Brinco ${result.entities.brinco}</span>`;
+                        if (result.entities.dose !== 'Não especificada') {
+                            description += ` (${result.entities.dose})`;
+                        }
+                        break;
+                    case 'parto':
+                        description = `Registrar parto da vaca <span class="entity-highlight">Brinco ${result.entities.brincoMae}</span>`;
+                        if (result.entities.pesoCria) {
+                            description += ` - Cria de <span class="entity-highlight">${result.entities.pesoCria}kg</span>`;
+                        }
+                        if (result.entities.sexoCria !== 'Não especificado') {
+                            description += ` (${result.entities.sexoCria})`;
+                        }
+                        break;
+                    case 'pesagem':
+                        description = `Registrar peso de <span class="entity-highlight">${result.entities.peso}kg</span> do animal <span class="entity-highlight">Brinco ${result.entities.brinco}</span>`;
+                        break;
+                    case 'movimento':
+                        description = `Mover animal <span class="entity-highlight">Brinco ${result.entities.brinco}</span> para <span class="entity-highlight">Piquete ${result.entities.piqueteDestino}</span>`;
+                        break;
+                    case 'observacao':
+                        description = `Registrar observação do animal <span class="entity-highlight">Brinco ${result.entities.brinco}</span>: "${result.entities.observacao}"`;
+                        break;
+                }
+                nlpParsed.innerHTML = description;
+                
+                nlpEntities.innerHTML = Object.entries(result.entities)
+                    .filter(([key, value]) => value && value !== 'Não especificado' && value !== 'Não especificada')
+                    .map(([key, value]) => {
+                        let icon = 'fa-tag';
+                        if (key.includes('brinco')) icon = 'fa-ear-listen';
+                        if (key.includes('peso')) icon = 'fa-weight';
+                        if (key.includes('vacina')) icon = 'fa-syringe';
+                        if (key.includes('piquete')) icon = 'fa-map-marker-alt';
+                        return `<span class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600"><i class="fas ${icon}"></i> ${key}: ${value}</span>`;
+                    }).join('');
+            },
+
+            confirmVoiceCommand() {
+                if (!this.currentNLPResult) return;
+                
+                const result = this.currentNLPResult;
+                let success = false;
+                
+                switch(result.action) {
+                    case 'vacina':
+                        success = this.executeVacinacao(result.entities);
+                        break;
+                    case 'parto':
+                        success = this.executeParto(result.entities);
+                        break;
+                    case 'pesagem':
+                        success = this.executePesagem(result.entities);
+                        break;
+                    case 'movimento':
+                        success = this.executeMovimento(result.entities);
+                        break;
+                    case 'observacao':
+                        success = this.executeObservacao(result.entities);
+                        break;
+                }
+                
+                if (success) {
+                    result.status = 'success';
+                    this.data.voiceHistory.unshift(result);
+                    this.saveData();
+                    this.renderAll();
+                    this.updateStats();
+                    this.renderHistoricoVoz();
+                    
+                    this.showToast('✅ Comando executado com sucesso!');
+                    this.hideVoicePanel();
+                } else {
+                    this.showToast('❌ Erro ao executar comando. Verifique os dados.');
+                }
+            },
+
+            editVoiceCommand() {
+                // Implementation for editing voice commands
+                this.showToast('Função de edição em desenvolvimento');
+            },
+
+            /**
+             * Execute Actions from Voice Commands
+             */
+            executeVacinacao(entities) {
+                const animal = this.data.animais.find(a => a.brinco === entities.brinco);
+                if (!animal) {
+                    this.showToast(`Animal brinco ${entities.brinco} não encontrado`);
+                    return false;
+                }
+
+                const vacina = {
+                    id: Date.now(),
+                    animalId: animal.id,
+                    brinco: entities.brinco,
+                    vacina: entities.vacina,
+                    dose: entities.dose,
+                    data: entities.data,
+                    nomeAnimal: animal.nome || ''
+                };
+
+                this.data.vacinas.push(vacina);
+                return true;
+            },
+
+            executeParto(entities) {
+                const mae = this.data.animais.find(a => a.brinco === entities.brincoMae);
+                if (!mae) {
+                    this.showToast(`Animal brinco ${entities.brincoMae} não encontrado`);
+                    return false;
+                }
+
+                const parto = {
+                    id: Date.now(),
+                    maeId: mae.id,
+                    brincoMae: entities.brincoMae,
+                    nomeMae: mae.nome || '',
+                    data: entities.data,
+                    pesoCria: entities.pesoCria,
+                    sexoCria: entities.sexoCria,
+                    observacoes: entities.observacoes
+                };
+
+                this.data.partos.push(parto);
+
+                // Create new animal for calf
+                const novoBrinco = this.generateNewBrinco();
+                const categoria = entities.sexoCria === 'Macho' ? 'Terneiro' : 'Bezerra';
+                const novoAnimal = {
+                    id: Date.now() + 1,
+                    brinco: novoBrinco,
+                    nome: `${categoria} de ${mae.nome || entities.brincoMae}`,
+                    categoria: categoria,
+                    raca: mae.raca,
+                    peso: entities.pesoCria || 35,
+                    piquete: mae.piquete,
+                    status: 'ativa',
+                    dataNascimento: entities.data,
+                    brincoMae: entities.brincoMae,
+                    ultimaPesagem: entities.data
+                };
+
+                this.data.animais.push(novoAnimal);
+                
+                // Update mother
+                mae.status = 'lactacao';
+                mae.ultimoParto = entities.data;
+
+                this.showToast(`Parto registrado! Cria cadastrada com brinco ${novoBrinco}`);
+                return true;
+            },
+
+            executePesagem(entities) {
+                const animal = this.data.animais.find(a => a.brinco === entities.brinco);
+                if (!animal) {
+                    this.showToast(`Animal brinco ${entities.brinco} não encontrado`);
+                    return false;
+                }
+
+                animal.peso = entities.peso;
+                animal.ultimaPesagem = entities.data;
+
+                const pesagem = {
+                    id: Date.now(),
+                    animalId: animal.id,
+                    brinco: entities.brinco,
+                    peso: entities.peso,
+                    data: entities.data
+                };
+
+                this.data.pesagens.push(pesagem);
+                return true;
+            },
+
+            executeMovimento(entities) {
+                const animal = this.data.animais.find(a => a.brinco === entities.brinco);
+                if (!animal) {
+                    this.showToast(`Animal brinco ${entities.brinco} não encontrado`);
+                    return false;
+                }
+
+                const piquete = this.data.piquetes.find(p => 
+                    p.nome.toLowerCase().includes(entities.piqueteDestino.toLowerCase()) ||
+                    p.id.toString() === entities.piqueteDestino
+                );
+
+                if (!piquete) {
+                    this.showToast(`Piquete ${entities.piqueteDestino} não encontrado`);
+                    return false;
+                }
+
+                // Update lotacao history
+                const oldPiquete = animal.piquete;
+                animal.piquete = piquete.nome;
+
+                const movimento = {
+                    id: Date.now(),
+                    animalId: animal.id,
+                    brinco: entities.brinco,
+                    piqueteOrigem: oldPiquete,
+                    piqueteDestino: piquete.nome,
+                    data: entities.data
+                };
+
+                this.data.movimentos.push(movimento);
+                
+                // Update lotacao history table
+                const lotacaoEntry = this.data.lotacaoHistory.find(l => l.animal === entities.brinco);
+                if (lotacaoEntry) {
+                    lotacaoEntry.piquete = piquete.nome;
+                    lotacaoEntry.entrada = entities.data;
+                    lotacaoEntry.dias = 0;
+                }
+
+                return true;
+            },
+
+            executeObservacao(entities) {
+                const animal = this.data.animais.find(a => a.brinco === entities.brinco);
+                if (!animal) {
+                    this.showToast(`Animal brinco ${entities.brinco} não encontrado`);
+                    return false;
+                }
+
+                const observacao = {
+                    id: Date.now(),
+                    animalId: animal.id,
+                    brinco: entities.brinco,
+                    texto: entities.observacao,
+                    sintomas: entities.sintomas,
+                    data: entities.data
+                };
+
+                this.data.observacoes.push(observacao);
+
+                if (entities.sintomas && entities.sintomas.length > 0) {
+                    animal.status = 'tratamento';
+                }
+
+                return true;
+            },
+
+            generateNewBrinco() {
+                const maxBrinco = Math.max(...this.data.animais.map(a => parseInt(a.brinco) || 0));
+                return (maxBrinco + 1).toString();
+            },
+
+            /**
+             * UI Rendering
+             */
+            renderAll() {
+                this.renderAnimais();
+                this.renderPiquetes();
+                this.renderLotacaoTable();
+                this.renderPreviewTable();
+                this.renderAnimalLocationList();
+                this.populateSelects();
+            },
+
+            renderAnimais(filtered = this.data.animais) {
+                const grid = document.getElementById('animaisGrid');
+                if (!grid) return;
+                
+                if (filtered.length === 0) {
+                    document.getElementById('emptyAnimais').classList.remove('hidden');
+                    grid.innerHTML = '';
+                    return;
+                }
+                
+                document.getElementById('emptyAnimais').classList.add('hidden');
+                
+                grid.innerHTML = filtered.map(animal => `
+                    <div class="glass rounded-2xl p-6 card-hover border border-gray-100">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-primary">
+                                    <i class="fas fa-cow"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800">${animal.nome || animal.brinco}</h4>
+                                    <p class="text-xs text-gray-500">Brinco: ${animal.brinco}</p>
+                                </div>
+                            </div>
+                            <span class="status-badge ${this.getStatusClass(animal.status)}">${animal.status}</span>
+                        </div>
+                        <div class="space-y-2 text-sm mb-4">
+                            <div class="flex justify-between"><span class="text-gray-500">Categoria:</span><span class="font-medium">${animal.categoria}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Raça:</span><span class="font-medium">${animal.raca}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Peso:</span><span class="font-medium">${animal.peso} kg</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Piquete:</span><span class="font-medium text-primary cursor-pointer hover:underline" onclick="sgpec.verNoMapa('${animal.piquete}')">${animal.piquete}</span></div>
+                        </div>
+                        <div class="flex gap-2 pt-4 border-t border-gray-100">
+                            <button class="flex-1 py-2 text-sm text-primary hover:bg-emerald-50 rounded-lg" onclick="sgpec.showAnimalDetail(${animal.id})">
+                                <i class="fas fa-eye"></i> Detalhes
+                            </button>
+                            <button class="flex-1 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg" onclick="sgpec.editAnimal(${animal.id})">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            renderPiquetes() {
+                const grid = document.getElementById('piquetesGrid');
+                if (!grid) return;
+                
+                grid.innerHTML = this.data.piquetes.map(piquete => `
+                    <div class="glass rounded-2xl p-6 card-hover border border-gray-100">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 class="font-semibold text-gray-800 text-lg">${piquete.nome}</h4>
+                                <p class="text-sm text-gray-500">${piquete.pastagem}</p>
+                            </div>
+                            <span class="status-badge ${this.getPiqueteStatusClass(piquete.status)}">${piquete.status}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-lg font-bold text-gray-800">${piquete.area}</p>
+                                <p class="text-xs text-gray-500">hectares</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-lg font-bold text-gray-800">${piquete.ocupacao}/${piquete.capacidade}</p>
+                                <p class="text-xs text-gray-500">UA</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-lg font-bold ${piquete.status === 'superlotado' ? 'text-red-600' : 'text-emerald-600'}">${Math.round((piquete.ocupacao/piquete.capacidade)*100)}%</p>
+                                <p class="text-xs text-gray-500">ocupação</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${(piquete.infra || []).map(i => `
+                                <span class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600">
+                                    <i class="fas fa-${i === 'agua' ? 'tint' : i === 'sombra' ? 'tree' : i === 'cerca' ? 'border-all' : 'archway'}"></i>
+                                    ${i}
+                                </span>
+                            `).join('')}
+                        </div>
+                        <div class="flex gap-2 pt-4 border-t border-gray-100">
+                            <button onclick="sgpec.verNoMapa('${piquete.nome}')" class="flex-1 py-2 text-sm text-primary hover:bg-emerald-50 rounded-lg">
+                                <i class="fas fa-map-marker-alt"></i> Ver no Mapa
+                            </button>
+                            <button class="flex-1 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg" onclick="sgpec.showPiqueteStats(${piquete.id})">
+                                <i class="fas fa-chart-bar"></i> Estatísticas
+                            </button>
+                        </div>
+                        <div class="mt-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-lightbulb text-amber-500 mt-0.5"></i>
+                                <div class="text-xs text-emerald-800">
+                                    <strong>Dica de Manejo:</strong> ${this.getManagementTip(piquete)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            renderLotacaoTable() {
+                const tbody = document.getElementById('lotacaoTable');
+                if (!tbody) return;
+                
+                tbody.innerHTML = this.data.lotacaoHistory.map(item => `
+                    <tr class="hover:bg-gray-50 transition-all">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-800">${item.animal}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${item.nome || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-primary font-medium">${item.piquete}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${item.entrada}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs ${item.dias > 30 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
+                                ${item.dias} dias
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <button class="text-primary hover:text-secondary" onclick="sgpec.showAnimalTrajectory('${item.animal}')">
+                                <i class="fas fa-route"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            },
+
+            renderPreviewTable() {
+                const tbody = document.getElementById('previewTable');
+                if (!tbody) return;
+                
+                tbody.innerHTML = this.data.animais.slice(0, 5).map(animal => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-800">${animal.id}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-800">${animal.brinco}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${animal.nome || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${animal.categoria}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${animal.peso}</td>
+                        <td class="px-4 py-3 text-sm text-primary">${animal.piquete}</td>
+                        <td class="px-4 py-3 text-sm"><span class="status-badge ${this.getStatusClass(animal.status)}">${animal.status}</span></td>
+                    </tr>
+                `).join('');
+            },
+
+            renderAnimalLocationList() {
+                const container = document.getElementById('animalLocationList');
+                if (!container) return;
+                
+                // Check if feature is available
+                if (!this.hasFeature('animal_location')) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-lock text-3xl mb-2 text-gray-300"></i>
+                            <p class="text-sm">Recurso disponível nos planos Fazenda e Agropecuária</p>
+                            <button onclick="sgpec.showUpgradeModal('fazenda')" class="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-secondary">
+                                Fazer Upgrade
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = this.data.animais.map(animal => {
+                    const piquete = this.data.piquetes.find(p => p.nome === animal.piquete);
+                    return `
+                        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all cursor-pointer" onclick="sgpec.focusOnAnimal('${animal.brinco}')">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-primary flex-shrink-0">
+                                <i class="fas fa-cow"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-gray-800 truncate">${animal.nome || animal.brinco}</p>
+                                <p class="text-xs text-gray-500">${animal.categoria} • ${animal.peso}kg</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-medium text-primary">${animal.piquete}</p>
+                                <button class="text-xs text-gray-400 hover:text-primary">
+                                    <i class="fas fa-crosshairs"></i> Localizar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            renderHistoricoVoz() {
+                const tbody = document.getElementById('historicoVozTable');
+                const emptyState = document.getElementById('emptyHistoricoFree');
+                
+                if (!tbody) return;
+                
+                // Check if feature is available
+                if (!this.hasFeature('voice_commands')) {
+                    tbody.parentElement.parentElement.classList.add('hidden');
+                    if (emptyState) emptyState.classList.remove('hidden');
+                    return;
+                }
+                
+                if (emptyState) emptyState.classList.add('hidden');
+                tbody.parentElement.parentElement.classList.remove('hidden');
+                
+                tbody.innerHTML = this.data.voiceHistory.slice(0, 50).map(cmd => {
+                    const actionLabels = {
+                        vacina: { icon: 'fa-syringe', color: 'blue' },
+                        parto: { icon: 'fa-baby', color: 'pink' },
+                        pesagem: { icon: 'fa-weight', color: 'amber' },
+                        movimento: { icon: 'fa-exchange-alt', color: 'purple' },
+                        observacao: { icon: 'fa-stethoscope', color: 'gray' }
+                    };
+                    const action = actionLabels[cmd.action] || { icon: 'fa-circle', color: 'gray' };
+                    
+                    return `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm text-gray-600">${new Date(cmd.timestamp).toLocaleString('pt-BR')}</td>
+                            <td class="px-4 py-3 text-sm text-gray-800">"${cmd.rawText}"</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-${action.color}-100 text-${action.color}-700 rounded-full text-xs">
+                                    <i class="fas ${action.icon}"></i> ${cmd.action}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">
+                                ${Object.entries(cmd.entities).map(([k,v]) => `${k}: ${v}`).join(', ')}
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs ${cmd.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                                    ${cmd.status === 'success' ? 'Sucesso' : 'Erro'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            },
+
+            /**
+             * Plan UI Updates
+             */
+            updatePlanUI() {
+                const plan = this.getCurrentPlan();
+                const isTrial = this.isTrialActive();
+                
+                // Update badge
+                const badge = document.getElementById('currentPlanBadge');
+                badge.textContent = isTrial ? `TRIAL ${plan.name.toUpperCase()}` : plan.name.toUpperCase();
+                badge.className = `plan-badge plan-${this.user.plan === 'free' ? 'free' : this.user.plan}`;
+                
+                // Update usage bar
+                this.updateUsageBar();
+                
+                // Update trial banner
+                const trialBanner = document.getElementById('trialBanner');
+                const trialBadge = document.getElementById('trialBadge');
+                
+                if (isTrial) {
+                    trialBanner.classList.remove('hidden');
+                    trialBadge.classList.remove('hidden');
+                    document.getElementById('trialDaysLeft').textContent = this.getTrialDaysLeft();
+                    document.getElementById('trialPlanName').textContent = plan.name;
+                } else {
+                    trialBanner.classList.add('hidden');
+                    trialBadge.classList.add('hidden');
+                }
+                
+                // Update settings modal
+                document.getElementById('settingsPlanName').textContent = plan.name;
+                document.getElementById('currentPlanDisplay').textContent = isTrial ? `${plan.name} (Trial)` : plan.name;
+                
+                if (this.user.stripeSubscriptionId) {
+                    document.getElementById('settingsPlanStatus').textContent = 'Ativo';
+                    document.getElementById('settingsPlanStatus').className = 'px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium';
+                    document.getElementById('cancelPlanBtn').classList.remove('hidden');
+                    document.getElementById('settingsCancelBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('settingsPlanStatus').textContent = 'Free';
+                    document.getElementById('settingsPlanStatus').className = 'px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium';
+                    document.getElementById('cancelPlanBtn').classList.add('hidden');
+                    document.getElementById('settingsCancelBtn').classList.add('hidden');
+                }
+                
+                // Show/hide AI predictions card
+                const aiCard = document.getElementById('aiPredictionsCard');
+                if (aiCard) {
+                    if (plan.features.ai_predictions) {
+                        aiCard.classList.remove('hidden');
+                    } else {
+                        aiCard.classList.add('hidden');
+                    }
+                }
+                
+                // Update voice guide visibility
+                const voiceGuide = document.getElementById('voiceGuide');
+                if (voiceGuide) {
+                    if (plan.features.voice_commands) {
+                        voiceGuide.classList.remove('hidden');
+                    } else {
+                        voiceGuide.classList.add('hidden');
+                    }
+                }
+                
+                // Lock features in UI
+                this.lockFeatures();
+            },
+
+            updateUsageBar() {
+                const plan = this.getCurrentPlan();
+                const animaisCount = this.data.animais.length;
+                const piquetesCount = this.data.piquetes.length;
+                
+                // Update header usage
+                const usageText = document.getElementById('usageText');
+                const usageBar = document.getElementById('usageBar');
+                const animaisLimitInfo = document.getElementById('animaisLimitInfo');
+                const piquetesLimitInfo = document.getElementById('piquetesLimitInfo');
+                
+                if (usageText) {
+                    const maxAnimais = plan.limits.animais === Infinity ? '∞' : plan.limits.animais;
+                    usageText.textContent = `${animaisCount}/${maxAnimais}`;
+                }
+                
+                if (usageBar && plan.limits.animais !== Infinity) {
+                    const percentage = (animaisCount / plan.limits.animais) * 100;
+                    usageBar.style.width = `${Math.min(percentage, 100)}%`;
+                    
+                    if (percentage >= 90) {
+                        usageBar.classList.add('danger');
+                        usageBar.classList.remove('warning');
+                    } else if (percentage >= 70) {
+                        usageBar.classList.add('warning');
+                        usageBar.classList.remove('danger');
+                    } else {
+                        usageBar.classList.remove('warning', 'danger');
+                    }
+                }
+                
+                if (animaisLimitInfo) {
+                    animaisLimitInfo.textContent = `Limite: ${plan.limits.animais === Infinity ? 'Ilimitado' : plan.limits.animais}`;
+                }
+                
+                if (piquetesLimitInfo) {
+                    piquetesLimitInfo.textContent = `Limite: ${plan.limits.piquetes === Infinity ? 'Ilimitado' : plan.limits.piquetes}`;
+                }
+                
+                // Update piquetes usage bar
+                const piqueteUsageBar = document.getElementById('piqueteUsageBar');
+                const piqueteUsageText = document.getElementById('piqueteUsageText');
+                
+                if (piqueteUsageBar && plan.limits.piquetes !== Infinity) {
+                    const percentage = (piquetesCount / plan.limits.piquetes) * 100;
+                    piqueteUsageBar.style.width = `${Math.min(percentage, 100)}%`;
+                }
+                
+                if (piqueteUsageText) {
+                    const maxPiquetes = plan.limits.piquetes === Infinity ? '∞' : plan.limits.piquetes;
+                    piqueteUsageText.textContent = `${piquetesCount} de ${maxPiquetes} usados`;
+                }
+            },
+
+            lockFeatures() {
+                const plan = this.getCurrentPlan();
+                
+                // Lock report cards for free plan
+                const reportCards = ['statsReportCard', 'vacinasReportCard', 'partosReportCard', 'completeReportCard'];
+                reportCards.forEach(id => {
+                    const card = document.getElementById(id);
+                    if (card && !plan.features.advanced_stats) {
+                        card.classList.add('feature-locked');
+                        if (!card.querySelector('.lock-badge')) {
+                            const lock = document.createElement('div');
+                            lock.className = 'lock-badge';
+                            lock.innerHTML = '<i class="fas fa-lock"></i> PRO';
+                            card.appendChild(lock);
+                        }
+                    } else if (card) {
+                        card.classList.remove('feature-locked');
+                        const lock = card.querySelector('.lock-badge');
+                        if (lock) lock.remove();
+                    }
+                });
+            },
+
+            checkLimits() {
+                const plan = this.getCurrentPlan();
+                const animaisCount = this.data.animais.length;
+                const piquetesCount = this.data.piquetes.length;
+                
+                // Show warning if close to limit
+                const warning = document.getElementById('limitWarning');
+                const warningText = document.getElementById('limitWarningText');
+                
+                let showWarning = false;
+                let message = '';
+                
+                if (plan.limits.animais !== Infinity && animaisCount >= plan.limits.animais * 0.8) {
+                    const remaining = plan.limits.animais - animaisCount;
+                    message = `Restam apenas ${remaining} ${remaining === 1 ? 'animal' : 'animais'} no plano ${plan.name}.`;
+                    showWarning = true;
+                }
+                
+                if (plan.limits.piquetes !== Infinity && piquetesCount >= plan.limits.piquetes * 0.8) {
+                    const remaining = plan.limits.piquetes - piquetesCount;
+                    if (message) message += ' ';
+                    message += `Restam apenas ${remaining} ${remaining === 1 ? 'piquete' : 'piquetes'}.`;
+                    showWarning = true;
+                }
+                
+                if (showWarning && warning) {
+                    warning.classList.remove('hidden');
+                    warningText.textContent = message;
+                } else if (warning) {
+                    warning.classList.add('hidden');
+                }
+            },
+
+            /**
+             * Map Functions
+             */
+            initMap() {
+                const mapEl = document.getElementById('map');
+                if (!mapEl) return;
+
+                this.map = L.map('map').setView([-23.55, -47.5], 12);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(this.map);
+
+                this.renderMapLayers();
+            },
+
+            renderMapLayers() {
+                // Clear existing layers
+                this.layers.piquetes.forEach(l => this.map.removeLayer(l));
+                this.layers.animais.forEach(l => this.map.removeLayer(l));
+                this.layers.infra.forEach(l => this.map.removeLayer(l));
+                this.layers.piquetes = [];
+                this.layers.animais = [];
+                this.layers.infra = [];
+
+                // Add piquetes
+                this.data.piquetes.forEach(piquete => {
+                    const coords = piquete.coordenadas || [[-23.5, -47.5], [-23.5, -47.4], [-23.6, -47.4], [-23.6, -47.5]];
+                    const polygon = L.polygon(coords, {
+                        color: this.getPiqueteColor(piquete.status),
+                        fillColor: this.getPiqueteColor(piquete.status),
+                        fillOpacity: 0.3,
+                        weight: 2
+                    }).addTo(this.map);
+                    
+                    polygon.bindPopup(`
+                        <div class="p-2 min-w-[200px]">
+                            <h3 class="font-bold text-lg mb-1">${piquete.nome}</h3>
+                            <p class="text-sm text-gray-600 mb-2">${piquete.pastagem}</p>
+                            <div class="text-sm space-y-1">
+                                <p><strong>Área:</strong> ${piquete.area} ha</p>
+                                <p><strong>Ocupação:</strong> ${piquete.ocupacao}/${piquete.capacidade} UA</p>
+                                <p><strong>Status:</strong> <span class="capitalize">${piquete.status}</span></p>
+                            </div>
+                            <div class="mt-3 p-2 bg-emerald-50 rounded text-xs text-emerald-800">
+                                <i class="fas fa-lightbulb text-amber-500"></i> ${this.getManagementTip(piquete)}
+                            </div>
+                        </div>
+                    `);
+                    
+                    this.layers.piquetes.push(polygon);
+                });
+
+                // Add animals only if feature is enabled
+                if (this.hasFeature('animal_location')) {
+                    this.data.animais.forEach(animal => {
+                        const piquete = this.data.piquetes.find(p => p.nome === animal.piquete);
+                        if (piquete) {
+                            const center = this.getPolygonCenter(piquete.coordenadas);
+                            const offset = 0.005;
+                            const lat = center[0] + (Math.random() - 0.5) * offset;
+                            const lng = center[1] + (Math.random() - 0.5) * offset;
+                            
+                            const marker = L.marker([lat, lng], {
+                                icon: L.divIcon({
+                                    className: 'custom-marker',
+                                    html: `<div class="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center text-white text-xs border-2 border-white shadow-lg"><i class="fas fa-cow"></i></div>`,
+                                    iconSize: [32, 32],
+                                    iconAnchor: [16, 16]
+                                })
+                            }).addTo(this.map);
+                            
+                            marker.bindPopup(`
+                                <div class="p-2">
+                                    <h3 class="font-bold">${animal.nome || animal.brinco}</h3>
+                                    <p class="text-sm">${animal.categoria} - ${animal.raca}</p>
+                                    <p class="text-sm"><strong>Peso:</strong> ${animal.peso}kg</p>
+                                    <p class="text-sm text-primary"><i class="fas fa-map-marker-alt"></i> ${animal.piquete}</p>
+                                </div>
+                            `);
+                            
+                            this.layers.animais.push(marker);
+                        }
+                    });
+                }
+
+                // Add infrastructure
+                this.data.piquetes.forEach(piquete => {
+                    if (piquete.infra && piquete.infra.includes('agua')) {
+                        const center = this.getPolygonCenter(piquete.coordenadas);
+                        const waterMarker = L.marker([center[0] - 0.01, center[1] - 0.01], {
+                            icon: L.divIcon({
+                                className: 'infra-marker',
+                                html: `<div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs border-2 border-white shadow"><i class="fas fa-tint"></i></div>`,
+                                iconSize: [24, 24],
+                                iconAnchor: [12, 12]
+                            })
+                        }).addTo(this.map);
+                        waterMarker.bindPopup(`<div class="p-2"><strong>Bebedouro</strong><br>${piquete.nome}</div>`);
+                        this.layers.infra.push(waterMarker);
+                    }
+                });
+            },
+
+            getPolygonCenter(coordenadas) {
+                if (!coordenadas || coordenadas.length === 0) return [-23.55, -47.5];
+                let lat = 0, lng = 0;
+                coordenadas.forEach(c => { lat += c[0]; lng += c[1]; });
+                return [lat / coordenadas.length, lng / coordenadas.length];
+            },
+
+            getPiqueteColor(status) {
+                const colors = {
+                    'ativo': '#059669',
+                    'descanso': '#f59e0b',
+                    'superlotado': '#ef4444',
+                    'manutencao': '#6b7280'
+                };
+                return colors[status] || '#059669';
+            },
+
+            toggleLayer(layer) {
+                const btn = document.getElementById(`btnLayer${layer.charAt(0).toUpperCase() + layer.slice(1)}`);
+                if (!btn) return;
+                
+                // Check feature access for animals layer
+                if (layer === 'animais' && !this.hasFeature('animal_location')) {
+                    this.showUpgradeModalForFeature('animal_location');
+                    return;
+                }
+                
+                const isActive = btn.classList.contains('bg-primary');
+                
+                if (layer === 'piquetes') {
+                    this.layers.piquetes.forEach(l => {
+                        if (isActive) this.map.removeLayer(l);
+                        else l.addTo(this.map);
+                    });
+                } else if (layer === 'animais') {
+                    this.layers.animais.forEach(l => {
+                        if (isActive) this.map.removeLayer(l);
+                        else l.addTo(this.map);
+                    });
+                } else if (layer === 'infra') {
+                    this.layers.infra.forEach(l => {
+                        if (isActive) this.map.removeLayer(l);
+                        else l.addTo(this.map);
+                    });
+                }
+                
+                btn.classList.toggle('bg-primary');
+                btn.classList.toggle('text-white');
+                btn.classList.toggle('bg-white');
+            },
+
+            resetMap() {
+                if (this.map) {
+                    this.map.setView([-23.55, -47.5], 12);
+                }
+            },
+
+            verNoMapa(piqueteNome) {
+                this.showSection('mapa');
+                const piquete = this.data.piquetes.find(p => p.nome === piqueteNome);
+                if (piquete && this.map) {
+                    const center = this.getPolygonCenter(piquete.coordenadas);
+                    this.map.setView(center, 15);
+                }
+            },
+
+            focusOnAnimal(brinco) {
+                this.showSection('mapa');
+                const animal = this.data.animais.find(a => a.brinco === brinco);
+                if (animal && this.map) {
+                    const piquete = this.data.piquetes.find(p => p.nome === animal.piquete);
+                    if (piquete) {
+                        const center = this.getPolygonCenter(piquete.coordenadas);
+                        this.map.setView(center, 16);
+                    }
+                }
+            },
+
+            /**
+             * Charts
+             */
+            initCharts() {
+                const ctx1 = document.getElementById('atividadesChart');
+                if (ctx1) {
+                    new Chart(ctx1, {
+                        type: 'line',
+                        data: {
+                            labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+                            datasets: [{
+                                label: 'Vacinas',
+                                data: [12, 19, 15, 25],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.4
+                            }, {
+                                label: 'Partos',
+                                data: [5, 8, 6, 10],
+                                borderColor: '#ec4899',
+                                backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                }
+
+                const ctx2 = document.getElementById('categoriaChart');
+                if (ctx2) {
+                    const categorias = {};
+                    this.data.animais.forEach(a => {
+                        categorias[a.categoria] = (categorias[a.categoria] || 0) + 1;
+                    });
+                    
+                    new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(categorias),
+                            datasets: [{
+                                data: Object.values(categorias),
+                                backgroundColor: ['#059669', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                }
+            },
+
+            /**
+             * Statistics and Helpers
+             */
+            updateStats() {
+                const hoje = new Date().toISOString().split('T')[0];
+                const esteMes = hoje.slice(0, 7);
+                
+                // Update dashboard stats
+                const elTotalAnimais = document.getElementById('statTotalAnimais');
+                const elTotalVacinas = document.getElementById('statTotalVacinas');
+                const elVacinasHoje = document.getElementById('statVacinasHoje');
+                const elTotalPartos = document.getElementById('statTotalPartos');
+                const elPartosMes = document.getElementById('statPartosMes');
+                const elTotalPiquetes = document.getElementById('statTotalPiquetes');
+                const elOcupacao = document.getElementById('statOcupacao');
+                
+                if (elTotalAnimais) elTotalAnimais.textContent = this.data.animais.length;
+                if (elTotalVacinas) elTotalVacinas.textContent = this.data.vacinas.length;
+                if (elVacinasHoje) elVacinasHoje.textContent = this.data.vacinas.filter(v => v.data === hoje).length + ' hoje';
+                if (elTotalPartos) elTotalPartos.textContent = this.data.partos.length;
+                if (elPartosMes) elPartosMes.textContent = this.data.partos.filter(p => p.data.startsWith(esteMes)).length + ' este mês';
+                if (elTotalPiquetes) elTotalPiquetes.textContent = this.data.piquetes.length;
+                
+                if (elOcupacao) {
+                    const totalCapacidade = this.data.piquetes.reduce((acc, p) => acc + p.capacidade, 0);
+                    const totalOcupacao = this.data.piquetes.reduce((acc, p) => acc + p.ocupacao, 0);
+                    elOcupacao.textContent = Math.round((totalOcupacao / totalCapacidade) * 100) + '%';
+                }
+
+                // Update piquete stats
+                const elPiqueteTotal = document.getElementById('piqueteTotal');
+                const elCapacidadeTotal = document.getElementById('capacidadeTotal');
+                const elMediaDescanso = document.getElementById('mediaDescanso');
+                
+                if (elPiqueteTotal) elPiqueteTotal.textContent = this.data.piquetes.length;
+                if (elCapacidadeTotal) elCapacidadeTotal.textContent = this.data.piquetes.reduce((acc, p) => acc + p.capacidade, 0);
+                if (elMediaDescanso) {
+                    const avgDescanso = Math.round(this.data.piquetes.reduce((acc, p) => acc + (p.diasDescanso || 0), 0) / this.data.piquetes.length);
+                    elMediaDescanso.textContent = avgDescanso;
+                }
+                
+                // Update plan UI elements
+                this.updatePlanUI();
+                this.checkLimits();
+            },
+
+            getStatusClass(status) {
+                const classes = {
+                    'ativa': 'status-otimo',
+                    'lactacao': 'status-bom',
+                    'gestante': 'status-bom',
+                    'tratamento': 'status-regular',
+                    'vendida': 'status-ruim'
+                };
+                return classes[status] || 'status-bom';
+            },
+
+            getPiqueteStatusClass(status) {
+                const classes = {
+                    'ativo': 'status-otimo',
+                    'descanso': 'status-regular',
+                    'superlotado': 'status-ruim'
+                };
+                return classes[status] || 'status-bom';
+            },
+
+            getManagementTip(piquete) {
+                if (piquete.status === 'superlotado') {
+                    return '⚠️ Reduza a lotação imediatamente. Mova animais para piquete em descanso.';
+                } else if (piquete.diasDescanso < 21) {
+                    return '⏱️ Aguarde mais dias de descanso antes de novo pastejo.';
+                } else if (piquete.ocupacao < piquete.capacidade * 0.5) {
+                    return '💡 Considere aumentar a lotação para otimizar o uso.';
+                } else if (piquete.diasDescanso > 40) {
+                    return '✅ Piquete pronto para pastejo. Pastagem ideal.';
+                }
+                return '✓ Manejo adequado. Continue monitorando.';
+            },
+
+            /**
+             * UI Helpers
+             */
+            showSection(sectionId) {
+                document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
+                const section = document.getElementById(sectionId);
+                if (section) section.classList.remove('hidden');
+                
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('text-primary', 'border-primary');
+                    btn.classList.add('text-gray-600', 'border-transparent');
+                });
+                
+                const buttons = document.querySelectorAll('.nav-btn');
+                buttons.forEach(btn => {
+                    if(btn.getAttribute('onclick').includes(sectionId)) {
+                        btn.classList.remove('text-gray-600', 'border-transparent');
+                        btn.classList.add('text-primary', 'border-primary');
+                    }
+                });
+                
+                if (sectionId === 'mapa' && this.map) {
+                    setTimeout(() => this.map.invalidateSize(), 100);
+                }
+                
+                if (sectionId === 'historico') {
+                    this.renderHistoricoVoz();
+                }
+                
+                // Check feature access for specific sections
+                if (sectionId === 'relatorios' && !this.hasFeature('advanced_stats')) {
+                    // Allow access but show locked features
+                    this.lockFeatures();
+                }
+            },
+
+            openModal(modalName) {
+                const modal = document.getElementById(modalName + 'Modal');
+                if (modal) modal.classList.add('active');
+            },
+
+            closeModal(modalName) {
+                const modal = document.getElementById(modalName + 'Modal');
+                if (modal) modal.classList.remove('active');
+            },
+
+            showToast(message) {
+                const toast = document.getElementById('toast');
+                const msg = document.getElementById('toastMessage');
+                if (toast && msg) {
+                    msg.textContent = message;
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 3000);
+                }
+            },
+
+            openSettings() {
+                this.openModal('settings');
+            },
+
+            showUpgradeModal(plan) {
+                // Set specific plan in modal if provided
+                if (plan) {
+                    document.getElementById('upgradeFeatureTitle').textContent = `Upgrade para ${this.plans[plan].name}`;
+                    document.getElementById('upgradeFeatureDesc').textContent = `Aproveite todas as vantagens do plano ${this.plans[plan].name}.`;
+                }
+                this.openModal('upgrade');
+            },
+
+            populateSelects() {
+                const selects = document.querySelectorAll('#selectPiqueteAnimal, #filterPiquete');
+                selects.forEach(select => {
+                    if (select) {
+                        const currentValue = select.value;
+                        select.innerHTML = '<option value="">Selecione...</option>' +
+                            this.data.piquetes.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
+                        select.value = currentValue;
+                    }
+                });
+            },
+
+            filterAnimais() {
+                const search = document.getElementById('searchAnimais')?.value.toLowerCase() || '';
+                const categoria = document.getElementById('filterCategoria')?.value || '';
+                const piquete = document.getElementById('filterPiquete')?.value || '';
+                const status = document.getElementById('filterStatus')?.value || '';
+                
+                const filtered = this.data.animais.filter(animal => {
+                    const matchSearch = !search || 
+                        animal.brinco.toLowerCase().includes(search) || 
+                        (animal.nome && animal.nome.toLowerCase().includes(search)) ||
+                        animal.raca.toLowerCase().includes(search);
+                    const matchCategoria = !categoria || animal.categoria === categoria;
+                    const matchPiquete = !piquete || animal.piquete === piquete;
+                    const matchStatus = !status || animal.status === status;
+                    
+                    return matchSearch && matchCategoria && matchPiquete && matchStatus;
+                });
+                
+                this.renderAnimais(filtered);
+            },
+
+            resetFilters() {
+                const search = document.getElementById('searchAnimais');
+                const categoria = document.getElementById('filterCategoria');
+                const piquete = document.getElementById('filterPiquete');
+                const status = document.getElementById('filterStatus');
+                
+                if (search) search.value = '';
+                if (categoria) categoria.value = '';
+                if (piquete) piquete.value = '';
+                if (status) status.value = '';
+                
+                this.renderAnimais();
+            },
+
+            /**
+             * Event Listeners
+             */
+            setupEventListeners() {
+                // Animal form
+                const animalForm = document.getElementById('animalForm');
+                if (animalForm) {
+                    animalForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        
+                        // Check limit before adding
+                        const plan = this.getCurrentPlan();
+                        if (this.data.animais.length >= plan.limits.animais) {
+                            this.showLimitReachedModal('animais', plan.limits.animais);
+                            return;
+                        }
+                        
+                        const formData = new FormData(e.target);
+                        const newAnimal = {
+                            id: Date.now(),
+                            brinco: formData.get('brinco'),
+                            nome: formData.get('nome'),
+                            categoria: formData.get('categoria'),
+                            raca: formData.get('raca'),
+                            peso: parseFloat(formData.get('peso')) || 0,
+                            piquete: formData.get('piquete') || 'Piquete 1',
+                            status: 'ativa',
+                            ultimaPesagem: new Date().toISOString().split('T')[0],
+                            dataNascimento: new Date().toISOString().split('T')[0]
+                        };
+                        
+                        this.data.animais.push(newAnimal);
+                        this.saveData();
+                        this.renderAll();
+                        this.updateStats();
+                        this.showToast('Animal cadastrado com sucesso!');
+                        this.closeModal('addAnimal');
+                        e.target.reset();
+                    });
+                }
+
+                // Piquete form
+                const piqueteForm = document.getElementById('piqueteForm');
+                if (piqueteForm) {
+                    piqueteForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        
+                        // Check limit before adding
+                        const plan = this.getCurrentPlan();
+                        if (this.data.piquetes.length >= plan.limits.piquetes) {
+                            this.showLimitReachedModal('piquetes', plan.limits.piquetes);
+                            return;
+                        }
+                        
+                        const formData = new FormData(e.target);
+                        const infra = [];
+                        document.querySelectorAll('input[name="infra"]:checked').forEach(cb => infra.push(cb.value));
+                        
+                        const newPiquete = {
+                            id: Date.now(),
+                            nome: formData.get('nome'),
+                            area: parseFloat(formData.get('area')) || 0,
+                            capacidade: parseInt(formData.get('capacidade')) || 0,
+                            ocupacao: 0,
+                            status: 'ativo',
+                            pastagem: formData.get('pastagem'),
+                            ultimoPastejo: formData.get('ultimoPastejo'),
+                            diasDescanso: 0,
+                            coordenadas: [[-23.5, -47.5], [-23.5, -47.4], [-23.6, -47.4], [-23.6, -47.5]],
+                            infra: infra
+                        };
+                        
+                        try {
+                            const geojson = JSON.parse(formData.get('coordenadas'));
+                            if (geojson && geojson.coordinates) {
+                                newPiquete.coordenadas = geojson.coordinates[0].map(coord => [coord[1], coord[0]]);
+                            }
+                        } catch(e) {
+                            console.log('Using default coordinates');
+                        }
+                        
+                        this.data.piquetes.push(newPiquete);
+                        this.saveData();
+                        this.renderAll();
+                        this.updateStats();
+                        this.showToast('Piquete cadastrado com sucesso!');
+                        this.closeModal('addPiquete');
+                        e.target.reset();
+                    });
+                }
+
+                // KML Drag and Drop
+                const dropZone = document.getElementById('kmlDropZone');
+                if (dropZone) {
+                    dropZone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        dropZone.classList.add('dragover');
+                    });
+                    
+                    dropZone.addEventListener('dragleave', () => {
+                        dropZone.classList.remove('dragover');
+                    });
+                    
+                    dropZone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        dropZone.classList.remove('dragover');
+                        const files = e.dataTransfer.files;
+                        if (files.length) {
+                            document.getElementById('kmlInput').files = files;
+                            this.handleKMLUpload({ target: { files: files } });
+                        }
+                    });
+                }
+
+                // Close modals on outside click
+                window.onclick = (event) => {
+                    if (event.target.classList.contains('modal')) {
+                        event.target.classList.remove('active');
+                    }
+                };
+            },
+
+            handleKMLUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const preview = document.getElementById('kmlPreview');
+                        const content = document.getElementById('kmlContent');
+                        if (preview && content) {
+                            content.textContent = e.target.result.substring(0, 1000) + '...';
+                            preview.classList.remove('hidden');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            },
+
+            processKML() {
+                this.showToast('KML importado com sucesso!');
+                this.closeModal('importKML');
+                const preview = document.getElementById('kmlPreview');
+                if (preview) preview.classList.add('hidden');
+            },
+
+            /**
+             * Export Functions
+             */
+            exportData(type) {
+                // Check feature access
+                if (!this.hasFeature('excel_export')) {
+                    this.showUpgradeModalForFeature('excel_export');
+                    return;
+                }
+                
+                let data, filename;
+                const hoje = new Date().toISOString().split('T')[0];
+                
+                switch(type) {
+                    case 'animais':
+                        data = this.data.animais;
+                        filename = `sgpec_animais_${hoje}.xlsx`;
+                        break;
+                    case 'piquetes':
+                        data = this.data.piquetes;
+                        filename = `sgpec_piquetes_${hoje}.xlsx`;
+                        break;
+                    case 'vacinas':
+                        data = this.data.vacinas;
+                        filename = `sgpec_vacinas_${hoje}.xlsx`;
+                        break;
+                    case 'partos':
+                        data = this.data.partos;
+                        filename = `sgpec_partos_${hoje}.xlsx`;
+                        break;
+                    case 'estatisticas':
+                        data = this.generateEstatisticas();
+                        filename = `sgpec_estatisticas_${hoje}.xlsx`;
+                        break;
+                    case 'completo':
+                        this.exportComplete();
+                        return;
+                    default:
+                        return;
+                }
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Dados");
+                XLSX.writeFile(wb, filename);
+                this.showToast(`Relatório exportado: ${filename}`);
+            },
+
+            generateEstatisticas() {
+                const hoje = new Date().toISOString().split('T')[0];
+                const pesoMedio = this.data.animais.reduce((acc, a) => acc + a.peso, 0) / this.data.animais.length;
+                
+                return [
+                    { indicador: 'Total de Animais', valor: this.data.animais.length, unidade: 'cabeças', data: hoje },
+                    { indicador: 'Peso Médio', valor: Math.round(pesoMedio), unidade: 'kg', data: hoje },
+                    { indicador: 'Total de Vacinas', valor: this.data.vacinas.length, unidade: 'aplicações', data: hoje },
+                    { indicador: 'Total de Partos', valor: this.data.partos.length, unidade: 'nascimentos', data: hoje },
+                    { indicador: 'Piquetes Ativos', valor: this.data.piquetes.filter(p => p.status === 'ativo').length, unidade: 'piquetes', data: hoje },
+                ];
+            },
+
+            exportComplete() {
+                const hoje = new Date().toISOString().split('T')[0];
+                const wb = XLSX.utils.book_new();
+                
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.animais), "Animais");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.piquetes), "Piquetes");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.vacinas), "Vacinas");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.partos), "Partos");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.pesagens), "Pesagens");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.data.movimentos), "Movimentos");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(this.generateEstatisticas()), "Estatísticas");
+                
+                XLSX.writeFile(wb, `sgpec_relatorio_completo_${hoje}.xlsx`);
+                this.showToast('Relatório completo exportado!');
+            },
+
+            /**
+             * Subscription Management
+             */
+            confirmCancelSubscription() {
+                // Simulate API call to cancel
+                this.user.plan = 'free';
+                this.user.stripeSubscriptionId = null;
+                this.user.trial = null;
+                this.saveUserData();
+                this.updatePlanUI();
+                this.closeModal('cancelSubscription');
+                this.showToast('Assinatura cancelada. Você foi movido para o plano Free.');
+            },
+
+            confirmDeleteAccount() {
+                if (confirm('Tem certeza que deseja excluir sua conta? Todos os dados serão perdidos.')) {
+                    localStorage.removeItem('sgpec_data');
+                    localStorage.removeItem('sgpec_user');
+                    this.showToast('Conta excluída com sucesso.');
+                    setTimeout(() => location.reload(), 1500);
+                }
+            },
+
+            // Placeholder methods for future implementation
+            showAnimalDetail(id) {
+                this.showToast(`Detalhes do animal ${id} - Em desenvolvimento`);
+            },
+
+            editAnimal(id) {
+                this.showToast(`Editar animal ${id} - Em desenvolvimento`);
+            },
+
+            showPiqueteStats(id) {
+                this.showToast(`Estatísticas do piquete ${id} - Em desenvolvimento`);
+            },
+
+            showAnimalTrajectory(brinco) {
+                this.showToast(`Trajetória do animal ${brinco} - Em desenvolvimento`);
+            }
+        };
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            sgpec.init();
+        });
+    </script>
+</body>
+</html>
